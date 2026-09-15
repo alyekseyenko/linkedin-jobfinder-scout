@@ -146,9 +146,9 @@ export default function MarketIntelligence({ onSelectRole, activeQuery }: Market
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-black text-white uppercase tracking-wider">Cargos Recomendados</span>
+              <span className="text-xs font-black text-white uppercase tracking-wider">Recommended Roles</span>
               <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-bio-neon-green/20 text-bio-neon-green border border-bio-neon-green/30">
-                {roles.length} Opções IA
+                {roles.length} AI Matches
               </span>
             </div>
           </div>
@@ -167,7 +167,7 @@ export default function MarketIntelligence({ onSelectRole, activeQuery }: Market
                     ? 'bg-bio-neon-green text-black border border-bio-neon-green shadow-bio-neon'
                     : 'bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/10 hover:border-bio-neon-blue/30'
                 }`}
-                title={`Clique para selecionar: ${role.title} (${role.match_score}% Match). Não dispara busca automática.`}
+                title={`Click to select: ${role.title} (${role.match_score}% Match). Does not trigger auto search.`}
               >
                 <span>{role.title.replace(' (CrewAI / LangGraph)', '').replace(' (LangGraph / CrewAI)', '')}</span>
                 <span className={`text-[9px] px-1.5 py-0.2 rounded font-black ${isSelected ? 'bg-black/20 text-black' : 'bg-white/10 text-bio-neon-green'}`}>
@@ -182,7 +182,7 @@ export default function MarketIntelligence({ onSelectRole, activeQuery }: Market
               onClick={() => setIsExpanded(true)}
               className="px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-bio-neon-blue/10 hover:bg-bio-neon-blue/20 text-bio-neon-blue border border-bio-neon-blue/30 transition-all cursor-pointer flex items-center gap-1"
             >
-              <span>+{roles.length - 4} Mais Cargos</span>
+              <span>+{roles.length - 4} More Roles</span>
             </button>
           )}
         </div>
@@ -193,18 +193,18 @@ export default function MarketIntelligence({ onSelectRole, activeQuery }: Market
             onClick={() => fetchMarketData(true)}
             disabled={refreshing}
             className="p-1.5 px-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/50 hover:text-white text-[9px] font-bold uppercase tracking-wider flex items-center gap-1.5 border border-white/5 disabled:opacity-50"
-            title="Atualizar análise de mercado com IA"
+            title="Refresh AI market analysis"
           >
             <RefreshCcw size={11} className={`${refreshing ? 'animate-spin' : ''}`} />
-            {refreshing ? '...' : 'Atualizar'}
+            {refreshing ? '...' : 'Refresh'}
           </button>
 
           <button
             onClick={() => setIsExpanded(!isExpanded)}
             className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-all"
-            title={isExpanded ? 'Ocultar detalhes de mercado' : 'Ver justificações completas de mercado'}
+            title={isExpanded ? 'Hide market details' : 'View full market justifications'}
           >
-            <span>{isExpanded ? 'Recolher' : `Ver Todos (${roles.length})`}</span>
+            <span>{isExpanded ? 'Collapse' : `View All (${roles.length})`}</span>
             {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
           </button>
         </div>

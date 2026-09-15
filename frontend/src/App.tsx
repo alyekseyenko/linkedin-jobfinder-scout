@@ -16,7 +16,7 @@ function PageLoader() {
   return (
     <div className="flex-1 min-h-[60vh] flex flex-col items-center justify-center gap-3">
       <div className="w-8 h-8 rounded-full border-2 border-green-500/20 border-t-green-400 animate-spin" />
-      <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">A carregar módulo...</span>
+      <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">Loading Neural Module...</span>
     </div>
   )
 }

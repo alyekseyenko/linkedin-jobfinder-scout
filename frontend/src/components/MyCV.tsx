@@ -270,7 +270,7 @@ ${(profile.education || []).map(formatEdu).join('\n')}
           <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-10">
             <div className="space-y-6">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-[10px] font-black uppercase tracking-[0.2em] text-green-400">
-                <ShieldCheck size={12} /> Perfil Profissional Ativo & Calibrado
+                <ShieldCheck size={12} /> Active & Calibrated Professional Profile
               </div>
               <h1 className="text-6xl lg:text-8xl font-black tracking-tighter text-white leading-[0.85]">
                 {profile.personal_info.name.split(' ')[0]}<span className="text-green-500">.</span><br />
@@ -284,21 +284,21 @@ ${(profile.education || []).map(formatEdu).join('\n')}
             <div className="flex flex-wrap gap-4">
               <button 
                 onClick={openEditModal}
-                className="flex items-center gap-2 px-6 py-4 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/30 font-black uppercase text-xs tracking-widest rounded-full transition-all duration-300 transform hover:-translate-y-1 active:scale-95 shadow-xl shadow-green-500/5"
+                className="flex items-center gap-2 px-6 py-4 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/30 font-black uppercase text-xs tracking-widest rounded-full transition-all duration-300 transform hover:-translate-y-1 active:scale-95 shadow-xl shadow-green-500/5 cursor-pointer"
               >
-                <Edit3 size={16} /> Editar Perfil
+                <Edit3 size={16} /> Edit Profile
               </button>
               <button 
                 onClick={exportPDF}
-                className="flex items-center gap-2 px-8 py-4 bg-white text-black font-black uppercase text-xs tracking-widest rounded-full hover:bg-green-400 transition-all duration-300 transform hover:-translate-y-1 active:scale-95 shadow-xl shadow-white/5"
+                className="flex items-center gap-2 px-8 py-4 bg-white text-black font-black uppercase text-xs tracking-widest rounded-full hover:bg-green-400 transition-all duration-300 transform hover:-translate-y-1 active:scale-95 shadow-xl shadow-white/5 cursor-pointer"
               >
-                <Download size={18} /> Descarregar CV em PDF
+                <Download size={18} /> Download CV PDF
               </button>
               <button 
                 onClick={exportATS}
-                className="flex items-center gap-2 px-8 py-4 bg-white/5 text-white/60 border border-white/10 font-black uppercase text-xs tracking-widest rounded-full hover:bg-white/10 transition-all duration-300"
+                className="flex items-center gap-2 px-8 py-4 bg-white/5 text-white/60 border border-white/10 font-black uppercase text-xs tracking-widest rounded-full hover:bg-white/10 transition-all duration-300 cursor-pointer"
               >
-                <FileText size={18} /> Descarregar Texto ATS
+                <FileText size={18} /> Download ATS Text
               </button>
             </div>
           </div>
@@ -336,10 +336,10 @@ ${(profile.education || []).map(formatEdu).join('\n')}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-green-400">
-                <Sparkles size={14} /> Atualização do Perfil & Aprendizagem da IA
+                <Sparkles size={14} /> Profile Enhancement & Neural Ingestion
               </div>
               <p className="text-xs text-white/50">
-                Alimenta o teu agente com novos dados para calibrar o match de vagas em tempo real.
+                Feed your agent with real experience data and skills to calibrate job matching in real-time.
               </p>
             </div>
 
@@ -350,23 +350,23 @@ ${(profile.education || []).map(formatEdu).join('\n')}
                   type="text"
                   value={urlInput}
                   onChange={(e) => setUrlInput(e.target.value)}
-                  placeholder="URL LinkedIn / GitHub..."
+                  placeholder="LinkedIn / GitHub URL..."
                   className="bg-transparent border-none text-xs text-white placeholder:text-white/20 outline-none w-44 md:w-56 font-mono"
                 />
                 <button
                   onClick={handleLearnUrl}
                   disabled={isCrawling || !urlInput.trim()}
-                  className="flex items-center gap-1.5 px-3 py-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all disabled:opacity-40"
+                  className="flex items-center gap-1.5 px-3 py-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all disabled:opacity-40 cursor-pointer"
                 >
                   {isCrawling ? <Loader2 size={12} className="animate-spin" /> : <Globe size={12} />}
-                  Sincronizar
+                  Sync
                 </button>
               </div>
 
               {/* Upload CV */}
               <label className="flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold text-white uppercase tracking-wider cursor-pointer transition-all hover:border-green-500/30">
                 {isUploading ? <Loader2 size={14} className="animate-spin text-green-400" /> : <FileUp size={14} className="text-green-400" />}
-                Carregar CV
+                Upload CV
                 <input type="file" className="hidden" accept=".pdf,.docx,.txt" multiple onChange={handleFileUpload} />
               </label>
 
@@ -374,10 +374,10 @@ ${(profile.education || []).map(formatEdu).join('\n')}
               <button
                 onClick={handleDeepMapping}
                 disabled={isDeepMapping}
-                className="flex items-center gap-2 px-5 py-2.5 bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 text-green-400 rounded-xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-40"
+                className="flex items-center gap-2 px-5 py-2.5 bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 text-green-400 rounded-xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-40 cursor-pointer"
               >
                 {isDeepMapping ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                Mapeamento Gemini
+                Gemini Synthesis
               </button>
             </div>
           </div>

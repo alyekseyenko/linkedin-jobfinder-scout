@@ -179,7 +179,7 @@ docker compose up --build -d
 Connecting your LinkedIn profile no longer requires manually inspecting DevTools or copying sensitive cookies into text files:
 
 - **1-Click Native Browser Flow (`neural-login://auth`)**:
-  - Clicking **"Ligar LinkedIn"** in the header triggers a custom native system URI handler that opens Google Chrome in your active desktop session.
+  - Clicking **"Connect LinkedIn"** in the header triggers a custom native system URI handler that opens Google Chrome in your active desktop session.
   - You log in securely on LinkedIn as usual.
   - The system detects your active feed, automatically intercepts the session authentication token (`li_at`), and transfers it to the secure backend.
 - **Zero-Trust Encrypted Vault (`vault_service.js`)**:
@@ -190,7 +190,7 @@ Connecting your LinkedIn profile no longer requires manually inspecting DevTools
 
 ---
 
-## 🤖 Cockpit de Auto-Fill ao Vivo (Human-in-the-Loop — HITL)
+## 🤖 Live Auto-Fill Cockpit (Human-in-the-Loop — HITL)
 
 Autonomous application submission with guaranteed human oversight:
 
@@ -215,7 +215,7 @@ Autonomous application submission with guaranteed human oversight:
 2. **Dynamic Easy Apply Navigation**: Detects and navigates multi-step LinkedIn Easy Apply dialogs, filling candidate details (phone, email, portfolio links).
 3. **Contextual Screening Q&A**: Queries `candidate_memory` in pgvector to answer employer-specific questions (e.g., years of experience with Python/Docker, notice period, work authorization).
 4. **Human-in-the-Loop Safety Stop**:
-   - The bot automatically **halts execution at the final review screen** (`Review / Rever candidatura`).
+   - The bot automatically **halts execution at the final review screen** (`Review Application`).
    - A real-time screenshot is streamed to the frontend dashboard.
    - **No application is submitted without your explicit confirmation.**
 
@@ -226,11 +226,11 @@ Autonomous application submission with guaranteed human oversight:
 Integrated directly into the header bar, the **Market Intelligence Engine** evaluates your CV against European and remote hiring trends:
 
 - **8 Strategic Roles Across 4 High-Growth Categories**:
-  - **🤖 Agentes Autónomos**: *Senior Agentic AI Engineer*, *AI Systems Engineer*
-  - **⚡ Automação & Python**: *Senior Python Automation Engineer*, *Digital Transformation & AI Lead*
-  - **🧠 RAG & Conhecimento**: *Enterprise RAG & Knowledge Systems Engineer*, *LLM Application Developer*
-  - **🏛️ Arquitetura & MLOps**: *AI Infrastructure & MLOps Engineer*, *Principal AI Solutions Architect*
-- **Market Demand Signals**: Live salary benchmarking (e.g., *€70.000 - €105.000 / ano*), active job volume indicators (e.g., *350+ vagas*), and match score justification.
+  - **🤖 Autonomous Agents**: *Senior Agentic AI Engineer*, *AI Systems Engineer*
+  - **⚡ Automation & Python**: *Senior Python Automation Engineer*, *Digital Transformation & AI Lead*
+  - **🧠 RAG & Knowledge Systems**: *Enterprise RAG & Knowledge Systems Engineer*, *LLM Application Developer*
+  - **🏛️ Architecture & MLOps**: *AI Infrastructure & MLOps Engineer*, *Principal AI Solutions Architect*
+- **Market Demand Signals**: Live salary benchmarking (e.g., *€70,000 - €105,000 / yr*), active job volume indicators (e.g., *350+ openings*), and match score justification.
 - **1-Click Search Binding**: Selecting any recommended role instantly loads optimized recruiter-grade search queries into the Discovery Engine without triggering accidental automated mass scraping.
 
 ---

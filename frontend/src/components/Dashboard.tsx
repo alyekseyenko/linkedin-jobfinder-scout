@@ -1006,11 +1006,11 @@ export default function Dashboard() {
           {/* RADAR EDITORIAL HERO HEADER */}
           <EditorialHeader
             badgeIcon={<Sparkles size={14} className="text-green-400" />}
-            badgeText="IA AUTÓNOMA DE RECRUTAMENTO"
+            badgeText="AUTONOMOUS RECRUITING AI"
             badgeColor="emerald"
-            titleMain="RADAR"
-            titleSecondary="DE OPORTUNIDADES"
-            subtitle="Triagem preditiva e inteligência artificial autónoma calibrada diretamente contra a tua identidade e CV."
+            titleMain="OPPORTUNITY"
+            titleSecondary="RADAR"
+            subtitle="Predictive screening and autonomous AI engine calibrated directly against your professional identity and CV."
             actions={
               <div className="flex flex-wrap items-center gap-3">
                 <span className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-black uppercase tracking-wider border transition-all ${
@@ -1019,15 +1019,15 @@ export default function Dashboard() {
                     : 'bg-white/5 border-white/10 text-white/70'
                 }`}>
                   <span className={`w-2 h-2 rounded-full ${newJobsAlert ? 'bg-green-400 shadow-[0_0_10px_#22c55e]' : 'bg-green-400'}`} />
-                  {jobs.length} Vagas Detetadas
+                  {jobs.length} Opportunities Detected
                 </span>
 
                 <button
                   onClick={() => fetchInitialJobs(false)}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/5 border border-white/10 text-xs font-black uppercase tracking-wider text-white/60 hover:text-white hover:border-white/20 transition-all cursor-pointer"
-                  title="Sincronizar com base de dados"
+                  title="Sync with local database"
                 >
-                  <RefreshCcw size={13} /> Sincronizar DB
+                  <RefreshCcw size={13} /> Sync DB
                 </button>
               </div>
             }
@@ -1075,9 +1075,9 @@ export default function Dashboard() {
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="font-black text-xs tracking-wider uppercase text-white">LinkedIn Neural Bridge</h3>
-                        <span className="w-2 h-2 rounded-full bg-green-400 shadow-[0_0_10px_#22c55e]" title="Conexão Ativa via Sessão" />
+                        <span className="w-2 h-2 rounded-full bg-green-400 shadow-[0_0_10px_#22c55e]" title="Active Connection via Session" />
                       </div>
-                      <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mt-0.5">Sessão Autenticada · Motor MCP Ativo</p>
+                      <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mt-0.5">Authenticated Session · MCP Engine Active</p>
                     </div>
                   </div>
 
@@ -1093,7 +1093,7 @@ export default function Dashboard() {
                             ? 'bg-blue-500/20 border-blue-500 text-blue-300 shadow-[0_0_15px_rgba(59,130,246,0.3)] animate-pulse'
                             : 'bg-white/5 border-white/10 text-white/50 hover:text-white hover:border-white/20'
                         }`}
-                        title={autopilot?.enabled ? 'Autopilot ativo em segundo plano (só procura sozinho se ligado). Clique para desativar.' : 'Autopilot desligado. Clique para ligar.'}
+                        title={autopilot?.enabled ? 'Autopilot active in background. Click to disable.' : 'Autopilot idle. Click to enable.'}
                       >
                         <Zap size={12} className={autopilot?.enabled ? 'fill-blue-400' : ''} />
                         <span>{autopilot?.enabled ? `Autopilot: ON (${autopilot.todayCount || 0}/${autopilot.dailyLimit || 3})` : 'Autopilot: OFF'}</span>
@@ -1101,7 +1101,7 @@ export default function Dashboard() {
                       <button
                         onClick={() => setIsAutopilotModalOpen(true)}
                         className="p-2 ml-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-white/40 hover:text-white cursor-pointer"
-                        title="Configurar limites e horários do Autopilot"
+                        title="Configure Autopilot limits and intervals"
                       >
                         <Settings size={12} />
                       </button>
@@ -1116,13 +1116,13 @@ export default function Dashboard() {
                           ? 'bg-green-500/20 border-green-500 text-green-400 shadow-[0_0_15px_rgba(34,197,94,0.3)]'
                           : 'bg-white/5 border-white/10 text-white/50 hover:text-white hover:border-white/20'
                       }`}
-                      title="Visão computacional autónoma com simulação de utilizador humano anti-bloqueio"
+                      title="Autonomous computer vision with anti-bot human-like simulation"
                     >
                       <Eye size={13} className={isVisionActive ? 'text-green-400' : ''} />
-                      <span>{isVisionInitializing ? 'A Ligar...' : isVisionHunting ? 'A Caçar...' : isVisionActive ? 'Vision: Ativo' : 'Vision Engine'}</span>
+                      <span>{isVisionInitializing ? 'Connecting...' : isVisionHunting ? 'Hunting...' : isVisionActive ? 'Vision: Active' : 'Vision Engine'}</span>
                     </button>
 
-                    {/* Memória Neural */}
+                    {/* Neural Memory */}
                     <button
                       onClick={() => setShowNeuralGraph(!showNeuralGraph)}
                       className={`px-4 py-2 rounded-full border text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all cursor-pointer ${
@@ -1130,18 +1130,18 @@ export default function Dashboard() {
                           ? 'bg-green-500/20 border-green-500 text-green-400 shadow-[0_0_15px_rgba(34,197,94,0.3)]'
                           : 'bg-white/5 border-white/10 text-white/50 hover:text-white'
                       }`}
-                      title="Explorar grafo de conhecimento e memórias RAG do perfil"
+                      title="Explore knowledge graph and RAG memories"
                     >
-                      <Sparkles size={12} /> Memória
+                      <Sparkles size={12} /> Memory
                     </button>
 
-                    {/* Sincronizar Perfil CV */}
+                    {/* Sync CV Profile */}
                     <button
                       onClick={() => fetchProfile()}
                       className="px-4 py-2 rounded-full bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-white/50 hover:text-green-400 hover:border-green-500/30 transition-all flex items-center gap-1.5 cursor-pointer"
-                      title="Recarrega as competências e perfil do teu CV sem fazer buscas no LinkedIn"
+                      title="Reload CV skills and profile attributes"
                     >
-                      <RefreshCcw size={12} /> Sincronizar CV
+                      <RefreshCcw size={12} /> Sync CV
                     </button>
                   </div>
                 </div>
@@ -1153,14 +1153,14 @@ export default function Dashboard() {
                       <div className="flex items-center justify-between border-b border-white/10 pb-4">
                         <div className="flex items-center gap-3">
                           <Zap size={18} className="text-bio-neon-blue" />
-                          <h3 className="text-sm font-black text-white uppercase tracking-wider">Configuração do Autopilot</h3>
+                          <h3 className="text-sm font-black text-white uppercase tracking-wider">Autopilot Configuration</h3>
                         </div>
                         <button onClick={() => setIsAutopilotModalOpen(false)} className="text-white/40 hover:text-white text-xs font-bold p-1">✕</button>
                       </div>
 
                       <div className="space-y-4 text-xs">
                         <div>
-                          <label className="text-white/70 font-bold block mb-1">Limite Diário de Pesquisas</label>
+                          <label className="text-white/70 font-bold block mb-1">Daily Search Limit</label>
                           <input
                             type="number"
                             min={1}
@@ -1169,11 +1169,11 @@ export default function Dashboard() {
                             onChange={(e) => setAutopilotLimitInput(Number(e.target.value))}
                             className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white font-bold"
                           />
-                          <span className="text-[10px] text-white/40 mt-1 block">Recomendado: 3 a 5 buscas/dia para proteger quota do LinkedIn.</span>
+                          <span className="text-[10px] text-white/40 mt-1 block">Recommended: 3 to 5 searches/day to protect your account.</span>
                         </div>
 
                         <div>
-                          <label className="text-white/70 font-bold block mb-1">Intervalo entre Execuções (Horas)</label>
+                          <label className="text-white/70 font-bold block mb-1">Execution Interval (Hours)</label>
                           <input
                             type="number"
                             min={1}
@@ -1185,7 +1185,7 @@ export default function Dashboard() {
                         </div>
 
                         <div>
-                          <label className="text-white/70 font-bold block mb-1">Páginas de Resultados por Execução</label>
+                          <label className="text-white/70 font-bold block mb-1">Result Pages Per Run</label>
                           <input
                             type="number"
                             min={1}
@@ -1202,7 +1202,7 @@ export default function Dashboard() {
                           onClick={() => setIsAutopilotModalOpen(false)}
                           className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 text-xs font-bold"
                         >
-                          Cancelar
+                          Cancel
                         </button>
                         <button
                           onClick={async () => {
@@ -1211,7 +1211,7 @@ export default function Dashboard() {
                           }}
                           className="px-5 py-2 rounded-xl bg-bio-neon-blue text-black text-xs font-black uppercase tracking-wider shadow-bio-neon hover:scale-105 transition-all"
                         >
-                          Guardar Configurações
+                          Save Settings
                         </button>
                       </div>
                     </div>
@@ -1242,7 +1242,7 @@ export default function Dashboard() {
                 <SearchConfig onSearch={handleSearch} onImportJob={handleImportJob} loading={loading} initialConfig={searchConfig} />
 
                 <main className="space-y-6">
-                  {/* ── TWO MASTER TABS: PESQUISA ATUAL vs BANCO DE VAGAS (DB) ── */}
+                  {/* ── TWO MASTER TABS: CURRENT SEARCH vs SAVED JOBS (DB) ── */}
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-4">
                     <div className="flex items-center gap-2 bg-white/[0.02] p-1.5 rounded-full border border-white/5">
                       <button
@@ -1254,7 +1254,7 @@ export default function Dashboard() {
                         }`}
                       >
                         <Zap size={13} className={jobTab === 'live' ? 'fill-black' : ''} />
-                        <span>Pesquisa Atual</span>
+                        <span>Current Search</span>
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${jobTab === 'live' ? 'bg-black/10 text-black' : 'bg-white/10 text-white/60'}`}>
                           {liveJobs.length}
                         </span>
@@ -1269,7 +1269,7 @@ export default function Dashboard() {
                         }`}
                       >
                         <Database size={13} />
-                        <span>Vagas Guardadas (DB)</span>
+                        <span>Saved Jobs (DB)</span>
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${jobTab === 'db' ? 'bg-black/20 text-black' : 'bg-white/10 text-white/60'}`}>
                           {dbJobs.length}
                         </span>
@@ -1283,7 +1283,7 @@ export default function Dashboard() {
                         onClick={handleLogin}
                         disabled={isSyncing}
                         className="bg-green-500/10 hover:bg-green-500/20 text-green-400 border-green-500/30 text-[10px] font-black uppercase tracking-widest h-9 px-4 rounded-full flex items-center gap-1.5 cursor-pointer"
-                        title="Verificar autenticação da sessão do LinkedIn"
+                        title="Verify LinkedIn session authentication"
                       >
                         <Zap size={11} />
                         Neural Handshake
@@ -1294,7 +1294,7 @@ export default function Dashboard() {
                         onClick={handleResetEngine}
                         disabled={isSyncing}
                         className="bg-white/5 hover:bg-white/10 text-white/40 border-white/10 text-[9px] font-black uppercase tracking-widest h-8 px-3 rounded-xl flex items-center gap-1.5"
-                        title="Reiniciar motor do navegador se estiver travado"
+                        title="Reset browser engine if unresponsive"
                       >
                         <RotateCcw size={11} className={isSyncing ? 'animate-spin' : ''} />
                         Reset Mesh
@@ -1302,10 +1302,10 @@ export default function Dashboard() {
                       <button
                         onClick={() => fetchInitialJobs(false)}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-white/40 hover:text-bio-neon-green hover:border-bio-neon-green/30 transition-all h-8 cursor-pointer"
-                        title="Recarregar todas as vagas do PostgreSQL local"
+                        title="Reload all opportunities from local PostgreSQL"
                       >
                         <RefreshCcw size={11} />
-                        Sincronizar DB
+                        Sync DB
                       </button>
                     </div>
                   </div>
@@ -1321,7 +1321,7 @@ export default function Dashboard() {
                             : 'bg-white/5 text-white/50 hover:text-white border border-white/5'
                         }`}
                       >
-                        <Briefcase size={12} /> Todas as Vagas ({currentTabJobs.length})
+                        <Briefcase size={12} /> All Opportunities ({currentTabJobs.length})
                       </button>
                       <button
                         onClick={() => setMatchFilter('high')}
@@ -1331,12 +1331,12 @@ export default function Dashboard() {
                             : 'bg-white/5 text-white/50 hover:text-white border border-white/5'
                         }`}
                       >
-                        <Sparkles size={12} /> Melhores Matches ≥75% ({highMatchCount})
+                        <Sparkles size={12} /> Best Matches ≥75% ({highMatchCount})
                       </button>
                     </div>
                     <div className="flex items-center gap-2 text-[9px] text-white/40 font-bold uppercase tracking-widest">
                       <Shield size={13} className="text-bio-neon-green" />
-                      <span>{jobTab === 'live' ? '⚡ Pesquisa em Tempo Real' : '🗄️ PostgreSQL Local · Mais Recentes no Topo'}</span>
+                      <span>{jobTab === 'live' ? '⚡ Real-time Discovery Feed' : '🗄️ Local PostgreSQL · Latest Indexed on Top'}</span>
                     </div>
                   </div>
 
@@ -1369,12 +1369,12 @@ export default function Dashboard() {
                       </AnimatePresence>
                     ) : currentTabJobs.length > 0 ? (
                       <div className="py-12 text-center space-y-3 bg-white/[0.02] border border-white/5 rounded-3xl p-8">
-                        <p className="text-sm font-bold text-white/60">Nenhuma vaga atinge ≥75% de afinidade nesta visualização.</p>
+                        <p className="text-sm font-bold text-white/60">No opportunities reach ≥75% match score in this view.</p>
                         <button
                           onClick={() => setMatchFilter('all')}
                           className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-black uppercase tracking-wider cursor-pointer"
                         >
-                          Ver Todas as {currentTabJobs.length} Vagas
+                          View All {currentTabJobs.length} Opportunities
                         </button>
                       </div>
                     ) : jobTab === 'live' ? (
@@ -1383,9 +1383,9 @@ export default function Dashboard() {
                           <Zap size={24} />
                         </div>
                         <div className="max-w-md mx-auto space-y-1.5">
-                          <h3 className="text-base font-black text-white uppercase tracking-wider">Nenhuma Pesquisa Ativa Neste Momento</h3>
+                          <h3 className="text-base font-black text-white uppercase tracking-wider">No Active Search Running</h3>
                           <p className="text-xs text-white/50 leading-relaxed">
-                            Configura os teus filtros acima e clica em <span className="text-bio-neon-green font-bold">"PROCURAR VAGAS"</span> para caçar oportunidades em tempo real, ou consulta o teu banco de vagas guardadas.
+                            Configure your search criteria above and click <span className="text-bio-neon-green font-bold">"HUNT JOBS"</span> to scout opportunities in real-time, or explore your local saved database.
                           </p>
                         </div>
                         {dbJobs.length > 0 ? (
@@ -1393,14 +1393,14 @@ export default function Dashboard() {
                             onClick={() => setJobTab('db')}
                             className="px-6 py-2.5 rounded-xl bg-bio-neon-green text-black font-black text-[10px] uppercase tracking-wider shadow-bio-neon hover:scale-105 transition-all cursor-pointer inline-flex items-center gap-2"
                           >
-                            <Database size={13} /> Ver Banco de Vagas Guardadas ({dbJobs.length} Vagas)
+                            <Database size={13} /> View Saved Jobs Database ({dbJobs.length} Roles)
                           </button>
                         ) : (
                           <button
                             onClick={() => handleSearch(searchConfig)}
                             className="px-6 py-2.5 rounded-xl bg-bio-neon-green text-black font-black text-[10px] uppercase tracking-wider shadow-bio-neon hover:scale-105 transition-all cursor-pointer inline-flex items-center gap-2"
                           >
-                            <Search size={13} /> Iniciar Primeira Pesquisa
+                            <Search size={13} /> Start First Discovery Run
                           </button>
                         )}
                       </div>
@@ -1410,16 +1410,16 @@ export default function Dashboard() {
                           <Database size={24} />
                         </div>
                         <div className="max-w-md mx-auto space-y-1.5">
-                          <h3 className="text-base font-black text-white uppercase tracking-wider">Banco de Dados Local Vazio</h3>
+                          <h3 className="text-base font-black text-white uppercase tracking-wider">Local Database Empty</h3>
                           <p className="text-xs text-white/50 leading-relaxed">
-                            Ainda não tens vagas registadas na base de dados PostgreSQL. Executa uma pesquisa acima para descobrir e arquivar vagas automaticamente.
+                            No opportunities indexed yet in local PostgreSQL. Run a search above to discover and archive jobs automatically.
                           </p>
                         </div>
                         <button
                           onClick={() => setJobTab('live')}
                           className="px-6 py-2.5 rounded-xl bg-bio-neon-blue text-black font-black text-[10px] uppercase tracking-wider shadow-[0_0_20px_rgba(0,180,255,0.4)] hover:scale-105 transition-all cursor-pointer inline-flex items-center gap-2"
                         >
-                          <Zap size={13} /> Ir Para Pesquisa de Vagas
+                          <Zap size={13} /> Switch to Live Search
                         </button>
                       </div>
                     )}

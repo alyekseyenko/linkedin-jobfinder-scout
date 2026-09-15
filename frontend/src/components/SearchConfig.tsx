@@ -159,7 +159,7 @@ export default function SearchConfig({ onSearch, onImportJob, loading = false, i
             ) : (
               <Sparkles size={13} className="text-green-400" />
             )}
-            <span className="hidden sm:inline">{cvSynced ? 'Sincronizado!' : 'Meu CV'}</span>
+            <span className="hidden sm:inline">{cvSynced ? 'Synced!' : 'My CV'}</span>
           </button>
 
           {/* Expand Filter Options */}

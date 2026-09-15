@@ -336,7 +336,7 @@ const Lane = memo(function Lane({ stage, jobs, updatingId, onOpenProfile, onDele
           </motion.div>
           <div className="flex flex-col">
             <span className="font-black text-[11px] uppercase tracking-[0.2em] text-white group-hover/lane:text-green-400 transition-colors">{stage.label}</span>
-            <span className="text-[8px] font-black text-white/30 uppercase tracking-widest mt-0.5">Fase do Pipeline</span>
+            <span className="text-[8px] font-black text-white/30 uppercase tracking-widest mt-0.5">Pipeline Stage</span>
           </div>
         </div>
         <div className="px-3 py-1 rounded-full bg-white/5 text-white/60 text-[10px] font-black border border-white/10 uppercase tracking-widest">
