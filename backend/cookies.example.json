@@ -1,0 +1,12 @@
+﻿[
+  {
+    "name": "li_at",
+    "value": "YOUR_LINKEDIN_LI_AT_SESSION_COOKIE_HERE",
+    "domain": ".linkedin.com",
+    "path": "/",
+    "expires": 1893456000,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "None"
+  }
+]

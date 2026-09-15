@@ -1,0 +1,44 @@
+﻿{
+  "personal_info": {
+    "name": "Jane Doe",
+    "title": "Senior AI Systems & Automation Engineer",
+    "email": "jane.doe@example.com",
+    "phone": "+1 555 019 2834",
+    "location": "San Francisco, CA / Remote",
+    "website": "https://linkedin.com/in/example"
+  },
+  "summary": "AI Systems & Automation Engineer specializing in autonomous agent workflows, distributed microservices, and high-reliability operational pipelines.",
+  "experience": [
+    {
+      "company": "TECH ENTERPRISE LABS",
+      "role": "Lead Automation Architect",
+      "period": "2024 - Present",
+      "bullets": [
+        "Architected multi-agent LLM systems with LangGraph and FastAPI, reducing manual workflows by 80%.",
+        "Engineered resilient event queues and caching layers handling 500k+ operations daily."
+      ]
+    }
+  ],
+  "hard_skills": [
+    "Python",
+    "TypeScript",
+    "FastAPI",
+    "React",
+    "Docker",
+    "PostgreSQL",
+    "pgvector",
+    "Redis",
+    "LangGraph"
+  ],
+  "education": [
+    {
+      "degree": "B.S. in Computer Science",
+      "school": "University of Technology",
+      "year": "2020"
+    }
+  ],
+  "certifications": [
+    "AWS Certified Solutions Architect",
+    "Deep Learning Specialization"
+  ]
+}

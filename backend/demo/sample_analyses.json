@@ -1,0 +1,53 @@
+[
+  {
+    "id": "demo_001",
+    "title": "Senior AI Systems & Platform Engineer",
+    "company": "Anthropic",
+    "location": "San Francisco, CA / Remote",
+    "match_score": 94,
+    "status": "discovered",
+    "tier_reached": "tier_3_elite",
+    "matched_skills": ["Python", "LangGraph", "FastAPI", "pgvector", "Docker", "Redis"],
+    "missing_skills": ["Kubernetes Helm tuning"],
+    "analysis": {
+      "match_score": 94,
+      "summary": "Exceptional fit for Senior AI Systems Architect role. Deep experience building multi-agent LangGraph workflows, high-throughput Redis/BullMQ task processing, and vector search with pgvector.",
+      "pitch_message": "Hi, I noticed your focus on reliable multi-agent architecture and scaling inference workflows. In my latest project, I built a 6-agent LangGraph orchestration pipeline with an AES-256 encrypted zero-trust vault, reducing inference latency by 60% through semantic caching and dynamic batching. Would love to share insights!",
+      "attack_strategy": "Highlight 6-agent autonomous LangGraph orchestration, sub-second semantic caching, and resilience patterns under high concurrency."
+    }
+  },
+  {
+    "id": "demo_002",
+    "title": "Staff Autonomous Systems Engineer",
+    "company": "OpenAI",
+    "location": "Remote / New York, NY",
+    "match_score": 91,
+    "status": "interested",
+    "tier_reached": "tier_3_elite",
+    "matched_skills": ["Playwright", "Autonomous Agents", "TypeScript", "Python", "FastAPI"],
+    "missing_skills": ["Rust"],
+    "analysis": {
+      "match_score": 91,
+      "summary": "Strong alignment in agentic browser automation, human-in-the-loop workflows, and robust state machine design.",
+      "pitch_message": "Hello, I saw your opening for Autonomous Systems Engineer. I recently developed an evasive browser automation pipeline using Playwright with WebGL fingerprint spoofing and HITL checkpoints, achieving 99.4% form accuracy without trigger bans. Would love to discuss this architecture.",
+      "attack_strategy": "Lead with human-in-the-loop safety design and anti-fingerprinting evasion mechanics in high-friction environments."
+    }
+  },
+  {
+    "id": "demo_003",
+    "title": "Lead Full-Stack AI Engineer",
+    "company": "Mistral AI",
+    "location": "Paris, France / Remote",
+    "match_score": 88,
+    "status": "applied",
+    "tier_reached": "tier_2_advanced",
+    "matched_skills": ["React 19", "Three.js", "Node.js", "Docker", "TailwindCSS"],
+    "missing_skills": ["C++"],
+    "analysis": {
+      "match_score": 88,
+      "summary": "Solid full-stack and interactive 3D visualization capabilities backed by production microservices architecture.",
+      "pitch_message": "Bonjour! I saw your search for a Lead Full-Stack AI Engineer. I recently architected a 60 FPS Three.js neural dashboard connected to a distributed BullMQ/pgvector backend. Looking forward to discussing how this can benefit your developer experience tools.",
+      "attack_strategy": "Showcase reactive UI performance with Three.js WebGL shaders and real-time SSE streaming telemetry."
+    }
+  }
+]

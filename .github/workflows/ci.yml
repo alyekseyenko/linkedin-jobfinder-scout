@@ -1,0 +1,92 @@
+name: Neural Scout — Full Quality Gate
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  security-audit:
+    name: Secret & Pattern Security Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan for committed secrets & real cookies
+        run: |
+          if grep -rn "AQEDA" . --exclude-dir=node_modules --exclude-dir=.git; then
+            echo "❌ CRITICAL: LinkedIn raw session cookie found in repository files!"
+            exit 1
+          fi
+
+  python-ai-test:
+    name: Python AI Engine — pytest & verification
+    needs: security-audit
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: backend_ai/requirements.txt
+      - name: Install AI Engine dependencies
+        run: pip install -r requirements.txt
+        working-directory: ./backend_ai
+      - name: Run Pytest Test Suite
+        run: pytest test_ai_service.py test_evals_benchmark.py -v
+        working-directory: ./backend_ai
+        env:
+          HEADLESS: "true"
+          ALLOW_MOCK_FALLBACK: "true"
+
+  backend-node-test:
+    name: Node.js Backend — Unit & Contract Suite
+    needs: security-audit
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ['20.x', '22.x']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: backend/package.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./backend
+      - name: Run Node Tests
+        run: node --test test/system.test.js test/services/*.test.js test/middleware/*.test.js
+        working-directory: ./backend
+        env:
+          NODE_ENV: test
+
+  frontend-build:
+    name: Frontend — TypeScript & Vite Build
+    needs: security-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: frontend/package.json
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: ./frontend
+      - name: Run Vitest Unit Tests
+        run: npm test
+        working-directory: ./frontend
+      - name: Build Production Assets
+        run: npm run build
+        working-directory: ./frontend

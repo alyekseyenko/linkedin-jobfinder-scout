@@ -1,0 +1,219 @@
+# ============================================================
+# 🧠 NEURAL AUTOMATION SYSTEM — Docker Compose
+# ============================================================
+# How to run:
+#   1. Copy .env.example to .env and configure your free API keys
+#   2. docker compose up --build
+#   3. Open: http://localhost:5173
+# ============================================================
+
+services:
+
+  # ──────────────────────────────────────────────
+  # 🗄️ PostgreSQL + pgvector (Local Neural Database)
+  # No Supabase account needed — runs 100% local
+  # ──────────────────────────────────────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: neural-postgres
+    environment:
+      POSTGRES_USER: neural
+      POSTGRES_PASSWORD: neural
+      POSTGRES_DB: neural_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U neural -d neural_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ──────────────────────────────────────────────
+  # 🤖 AI Engine (Python + CrewAI + LangGraph)
+  # ──────────────────────────────────────────────
+  ai-engine:
+    build:
+      context: ./backend_ai
+      dockerfile: Dockerfile
+    container_name: neural-ai-engine
+    ports:
+      - "${AI_ENGINE_PORT:-8001}:8001"
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - DATABASE_URL=postgresql://neural:neural@postgres:5432/neural_db
+      - USE_QDRANT=${USE_QDRANT:-false}
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - USE_PHOENIX=${USE_PHOENIX:-false}
+      - PHOENIX_HOST=phoenix
+      - PHOENIX_PORT=6006
+      - USE_OLLAMA=${USE_OLLAMA:-true}
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.1:latest}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend_ai:/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ──────────────────────────────────────────────
+  # 🧠 Neural Backend (Node.js + Express)
+  # ──────────────────────────────────────────────
+  neural-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: neural-backend
+    ports:
+      - "${BACKEND_PORT:-3004}:3001"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - AI_ENGINE_URL=http://ai-engine:8001
+      - DATABASE_URL=postgresql://neural:neural@postgres:5432/neural_db
+      - LINKEDIN_COOKIE=${LINKEDIN_COOKIE}
+      - LINKEDIN_COOKIES=${LINKEDIN_COOKIE}
+      - LINKEDIN_SESSION_COOKIE=${LINKEDIN_SESSION_COOKIE}
+      - LI_AT=${LI_AT}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - VAULT_SECRET=${VAULT_SECRET:-}
+      - PROXY_POOL=${PROXY_POOL:-}
+      - USE_QDRANT=${USE_QDRANT:-false}
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - USE_PHOENIX=${USE_PHOENIX:-false}
+      - PHOENIX_HOST=phoenix
+      - PHOENIX_PORT=6006
+      - USE_OLLAMA=${USE_OLLAMA:-true}
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.1:latest}
+      - REDIS_URL=redis://redis:6379
+      - PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./backend/knowledge_base.json:/app/knowledge_base.json
+      - ./backend/user_cv.json:/app/user_cv.json
+      - ./backend/server.js:/app/server.js
+      - ./backend/services:/app/services
+      - ./backend/routes:/app/routes
+      - ./backend/middleware:/app/middleware
+      - ./backend/contracts:/app/contracts
+      - ./backend/vector_engine.js:/app/vector_engine.js
+      - ./backend/deep_identity_mapper.js:/app/deep_identity_mapper.js
+      - ./backend/cookies.json:/app/cookies.json
+      - ./backend/source-state.json:/app/source-state.json
+      - ./backend/linkedin_profile:/app/linkedin_profile
+      - ./backend/init_session.py:/app/init_session.py
+      - vault_data:/app/vault
+      - backend_logs:/app/logs
+      - patchright_cache:/root/.linkedin-mcp/patchright-browsers
+      - ${UV_CACHE_PATH:-./.cache/uv}:/root/.cache/uv
+      - ${PLAYWRIGHT_CACHE_PATH:-./.cache/ms-playwright}:/root/.cache/ms-playwright
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai-engine:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  # ──────────────────────────────────────────────
+  # 🖥️ Neural Interface (React + Nginx Multi-Stage)
+  # ──────────────────────────────────────────────
+  neural-ui:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: neural-ui
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ./frontend/dist:/usr/share/nginx/html:ro
+    depends_on:
+      neural-backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ──────────────────────────────────────────────
+  # 🌌 Qdrant (Elite Vector Database — optional)
+  # ──────────────────────────────────────────────
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: neural-qdrant
+    ports:
+      - "${QDRANT_HOST_PORT:-6335}:6333"
+      - "${QDRANT_GRPC_PORT:-6336}:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ──────────────────────────────────────────────
+  # 👁️ Arize Phoenix (Neural Tracing — optional)
+  # ──────────────────────────────────────────────
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    container_name: neural-phoenix
+    ports:
+      - "6006:6006"
+      - "4317:4317"
+    restart: unless-stopped
+
+  # ──────────────────────────────────────────────
+  # 🗄️ Redis (Durable Queue Broker for BullMQ)
+  # ──────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: neural-redis
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
+  patchright_cache:
+  qdrant_data:
+  vault_data:
+  backend_logs:

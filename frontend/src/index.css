@@ -1,0 +1,290 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Shadcn UI Variables */
+  --background: 240 10% 3.9%;
+  --foreground: 0 0% 98%;
+  --card: 240 10% 4.9%;
+  --card-foreground: 0 0% 98%;
+  --popover: 240 10% 3.9%;
+  --popover-foreground: 0 0% 98%;
+  --primary: 142 71% 45%;
+  --primary-foreground: 144 100% 11%;
+  --secondary: 240 3.7% 15.9%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --accent: 142 71% 45%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 3.7% 15.9%;
+  --input: 240 3.7% 15.9%;
+  --ring: 142 71% 45%;
+  --radius: 0.75rem;
+
+  /* Bio-Neon 2026 Core */
+  --bio-void: #030008;
+  --bio-neon-green: #00ff80;
+  --bio-neon-blue: #00d4ff;
+  --bio-neon-purple: #bc13fe;
+  --bio-neon-cyan: #00f2ff;
+  --bio-void: #020205;
+  --bio-glass: rgba(255, 255, 255, 0.03);
+  --bio-border: rgba(255, 255, 255, 0.08);
+  
+  /* Fluid Typography Scale (2026) */
+  --font-fluid-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
+  --font-fluid-sm: clamp(0.875rem, 0.8rem + 0.35vw, 1rem);
+  --font-fluid-base: clamp(1rem, 0.9rem + 0.5vw, 1.125rem);
+  --font-fluid-lg: clamp(1.125rem, 1rem + 0.65vw, 1.25rem);
+  --font-fluid-xl: clamp(1.25rem, 1.1rem + 0.8vw, 1.5rem);
+  --font-fluid-2xl: clamp(1.5rem, 1.3rem + 1vw, 2rem);
+  --font-fluid-3xl: clamp(2rem, 1.8rem + 1.5vw, 3rem);
+  --font-fluid-huge: clamp(3rem, 2.5rem + 5vw, 8rem);
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html.lenis {
+  height: auto;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bio-void);
+  color: #fff;
+  font-family: 'Geist', sans-serif;
+  overflow-x: hidden;
+}
+
+/* Cursor Glow Tracker */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(
+    600px circle at var(--mouse-x) var(--mouse-y),
+    rgba(0, 255, 157, 0.05),
+    transparent 40%
+  );
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.lenis.lenis-scrolling iframe {
+  pointer-events: none;
+}
+
+#root {
+  min-height: 100%;
+  position: relative;
+}
+
+/* Neural Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, transparent, var(--bio-neon-green), transparent);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--bio-neon-green);
+  box-shadow: 0 0 20px var(--bio-neon-green);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  height: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(to right, transparent, var(--bio-neon-purple), transparent);
+}
+
+/* Fluid Typography Utilities */
+.text-fluid-huge { font-size: var(--font-fluid-huge); line-height: 0.9; letter-spacing: -0.05em; font-weight: 900; }
+.text-fluid-3xl { font-size: var(--font-fluid-3xl); line-height: 1.1; font-weight: 800; }
+.text-fluid-base { font-size: var(--font-fluid-base); line-height: 1.6; }
+
+/* Hardware Acceleration Layer */
+.gpu-layer {
+  transform: translateZ(0);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
+/* Modern 2026 Rendering Performance Optimization: Offscreen Skip Paint */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 450px;
+}
+
+/* Glassmorphism Evolution - Cleaner & Minimalist */
+.bio-glass {
+  background: rgba(255, 255, 255, 0.015);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 24px 0 rgba(0, 0, 0, 0.4);
+}
+
+.shadow-bio-neon {
+  box-shadow: 0 0 30px rgba(0, 255, 157, 0.08);
+}
+
+.shadow-bio-cyan {
+  box-shadow: 0 0 40px rgba(0, 210, 255, 0.15);
+}
+
+.razer-text-gradient {
+  background: linear-gradient(to right, #00ff9d, #00d2ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.bio-glass-hover {
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bio-glass-hover:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+/* Glass Noise Texture Overlay */
+.glass-noise::before {
+  content: "";
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  opacity: 0.04;
+  pointer-events: none;
+  z-index: 9999;
+  animation: grain 8s steps(10) infinite;
+}
+
+/* Bio-Neon Text Gradient */
+.bio-text-gradient {
+  background: linear-gradient(135deg, #fff 0%, var(--bio-neon-green) 50%, var(--bio-neon-blue) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-size: 200% auto;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 157, 0.2);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 157, 0.4);
+}
+
+/* --- 2026 NEURAL ANIMATIONS --- */
+
+@keyframes neural-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(0, 255, 128, 0.1); border-color: rgba(0, 255, 128, 0.1); }
+  50% { box-shadow: 0 0 40px rgba(0, 255, 128, 0.3); border-color: rgba(0, 255, 128, 0.4); }
+}
+
+@keyframes brain-glow {
+  0%, 100% { filter: drop-shadow(0 0 5px rgba(0, 255, 128, 0.2)); }
+  50% { filter: drop-shadow(0 0 20px rgba(0, 255, 128, 0.6)); }
+}
+
+@keyframes dna-float {
+  0% { transform: translateY(100px) rotate(0deg); opacity: 0; }
+  20% { opacity: 0.2; }
+  80% { opacity: 0.2; }
+  100% { transform: translateY(-800px) rotate(360deg); opacity: 0; }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes grain {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-5%, -10%); }
+  20% { transform: translate(-15%, 5%); }
+  30% { transform: translate(7%, -25%); }
+  40% { transform: translate(-5%, 25%); }
+  50% { transform: translate(-15%, 10%); }
+  60% { transform: translate(15%, 0%); }
+  70% { transform: translate(0%, 15%); }
+  80% { transform: translate(3%, 35%); }
+  90% { transform: translate(-10%, 10%); }
+}
+
+.animate-neural-pulse { animation: neural-pulse 4s infinite ease-in-out; }
+.animate-brain-glow { animation: brain-glow 3s infinite ease-in-out; }
+.animate-dna-float { animation: dna-float 15s infinite linear; }
+.animate-spin-slow { animation: spin-slow 20s infinite linear; }
+.animate-slide-up { animation: slide-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}

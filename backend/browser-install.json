@@ -1,0 +1,13 @@
+{
+  "browser_name": "chromium",
+  "browsers_path": "C:\\Users\\omon\\Desktop\\LinkedIn Botty\\linked - C\u00f3pia (4) - C\u00f3pia\\backend\\patchright-browsers",
+  "installed_at": "2026-08-14T22:35:54Z",
+  "installed_targets": {
+    "chromium-": true,
+    "chromium_headless_shell-": false
+  },
+  "installer_name": "patchright",
+  "patchright_version": "1.61.2",
+  "runtime_id": "windows-amd64-host",
+  "version": 3
+}

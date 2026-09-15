@@ -1,0 +1,54 @@
+{
+  "doc-9504a7a0da445182cc7436ea4cd53901": {
+    "status": "processing",
+    "content_summary": "IDENTIDADE MESTRE 2026: As a seasoned AI Solutions Architect, I specialize in digital art and agentic automation, driving transformative change. With a decade of experience, I optimize operational efficiency and scalability. My expertise lies in comp...",
+    "content_length": 702,
+    "created_at": "2026-08-25T13:53:04.863512+00:00",
+    "updated_at": "2026-08-31T20:12:16.099195+00:00",
+    "file_path": "unknown_source",
+    "track_id": "insert_20260825_145304_bb12f824",
+    "content_hash": "9504a7a0da445182cc7436ea4cd53901",
+    "metadata": {
+      "parse_start_time": 1788207135,
+      "parse_stage_skipped": true,
+      "parse_format": "raw",
+      "parse_engine": "legacy",
+      "analyzing_start_time": 1788207135,
+      "analyzing_stage_skipped": true,
+      "kg_write_state": "pre_graph",
+      "process_start_time": 1788207136,
+      "chunk_method": "legacy_chunking_func",
+      "chunk_opts": "size=1200, split_only=False, overlap=100"
+    },
+    "chunks_count": 1,
+    "chunks_list": [
+      "doc-9504a7a0da445182cc7436ea4cd53901-chunk-000"
+    ]
+  },
+  "doc-013d7d5954ff45acd98636c4eb8a5880": {
+    "status": "processing",
+    "content_summary": "IDENTIDADE MESTRE 2026: As a seasoned AI Solutions Architect, the user specializes in digital art and agentic automation, driving transformative change. With a decade of experience, they optimize operational efficiency and scalability, managing compl...",
+    "content_length": 714,
+    "created_at": "2026-08-31T20:12:15.901806+00:00",
+    "updated_at": "2026-08-31T20:12:16.079530+00:00",
+    "file_path": "unknown_source",
+    "track_id": "insert_20260831_211215_89dce405",
+    "content_hash": "013d7d5954ff45acd98636c4eb8a5880",
+    "metadata": {
+      "parse_start_time": 1788207135,
+      "parse_stage_skipped": true,
+      "parse_format": "raw",
+      "parse_engine": "legacy",
+      "analyzing_start_time": 1788207135,
+      "analyzing_stage_skipped": true,
+      "kg_write_state": "pre_graph",
+      "process_start_time": 1788207136,
+      "chunk_method": "legacy_chunking_func",
+      "chunk_opts": "size=1200, split_only=False, overlap=100"
+    },
+    "chunks_count": 1,
+    "chunks_list": [
+      "doc-013d7d5954ff45acd98636c4eb8a5880-chunk-000"
+    ]
+  }
+}

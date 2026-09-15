@@ -1,0 +1,36 @@
+{
+  "doc-9504a7a0da445182cc7436ea4cd53901": {
+    "content": "IDENTIDADE MESTRE 2026: As a seasoned AI Solutions Architect, I specialize in digital art and agentic automation, driving transformative change. With a decade of experience, I optimize operational efficiency and scalability. My expertise lies in complex AI system orchestration, model fine-tuning, and delivering business value.. NARRATIVA: With a proven track record, I have achieved exceptional ROI through technical innovation. Managing budgets of €10M+, I've delivered significant efficiency gains, increasing enterprise profitability. My expertise in AI engineering, agentic automation, and multi-agent swarms has driven transformative change, optimizing processes and enhancing business outcomes.",
+    "file_path": "unknown_source",
+    "parse_format": "raw",
+    "content_hash": "9504a7a0da445182cc7436ea4cd53901",
+    "chunk_options": {
+      "chunk_token_size": 1200,
+      "fixed_token": {
+        "split_by_character": null,
+        "split_by_character_only": false,
+        "chunk_overlap_token_size": 100
+      }
+    },
+    "create_time": 1787665984,
+    "update_time": 1787665984,
+    "_id": "doc-9504a7a0da445182cc7436ea4cd53901"
+  },
+  "doc-013d7d5954ff45acd98636c4eb8a5880": {
+    "content": "IDENTIDADE MESTRE 2026: As a seasoned AI Solutions Architect, the user specializes in digital art and agentic automation, driving transformative change. With a decade of experience, they optimize operational efficiency and scalability, managing complex AI systems and delivering business value.. NARRATIVA: The user's expertise in AI engineering, agentic automation, and multi-agent swarms has led to significant ROI and efficiency gains. Through modular microservices, cloud management, and workflow automation, they've achieved a 60% increase in profitability and a 2085% ROI. Their leadership, strategic thinking, and problem-solving skills have been instrumental in driving enterprise growth and profitability.",
+    "file_path": "unknown_source",
+    "parse_format": "raw",
+    "content_hash": "013d7d5954ff45acd98636c4eb8a5880",
+    "chunk_options": {
+      "chunk_token_size": 1200,
+      "fixed_token": {
+        "split_by_character": null,
+        "split_by_character_only": false,
+        "chunk_overlap_token_size": 100
+      }
+    },
+    "create_time": 1788207135,
+    "update_time": 1788207135,
+    "_id": "doc-013d7d5954ff45acd98636c4eb8a5880"
+  }
+}

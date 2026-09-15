@@ -1,0 +1,319 @@
+{
+  "entities": [
+    {
+      "id": "HABITARMOS_GROUP_ESTORESRAINHA",
+      "type": "Company",
+      "name": "HABITARMOS GROUP / ESTORESRAINHA",
+      "details": "A company where the user has worked in various roles since 2020."
+    },
+    {
+      "id": "Lead_AI_Solutions_Architect",
+      "type": "Role",
+      "name": "Lead AI Solutions Architect",
+      "details": "Current role at HABITARMOS GROUP / ESTORESRAINHA."
+    },
+    {
+      "id": "Senior_Backend_AI_Integration_Engineer",
+      "type": "Role",
+      "name": "Senior Backend & AI Integration Engineer",
+      "details": "Previous role at HABITARMOS GROUP / ESTORESRAINHA."
+    },
+    {
+      "id": "Software_Automation_Developer",
+      "type": "Role",
+      "name": "Software & Automation Developer",
+      "details": "Earlier role at HABITARMOS GROUP / ESTORESRAINHA."
+    },
+    {
+      "id": "sentinel",
+      "type": "Project",
+      "name": "Sentinel: Logistics Orchestrator & SRE Pipeline",
+      "details": "A high-throughput event simulator project."
+    },
+    {
+      "id": "AI_Engineering",
+      "type": "Skill",
+      "name": "AI Engineering",
+      "details": "A skill related to the user's expertise."
+    },
+    {
+      "id": "Agentic_Automation",
+      "type": "Skill",
+      "name": "Agentic Automation",
+      "details": "A skill involving automation and AI."
+    },
+    {
+      "id": "Multi-Agent_Swarms",
+      "type": "Skill",
+      "name": "Multi-Agent Swarms",
+      "details": "A skill or technique related to multi-agent systems."
+    },
+    {
+      "id": "Model_Context_Protocol_(MCP)",
+      "type": "Skill",
+      "name": "Model Context Protocol (MCP)",
+      "details": "A protocol or technique for model context."
+    },
+    {
+      "id": "Corrective_RAG_(CRAG)",
+      "type": "Skill",
+      "name": "Corrective RAG (CRAG)",
+      "details": "A corrective technique or protocol."
+    },
+    {
+      "id": "Semantic_Caching",
+      "type": "Skill",
+      "name": "Semantic Caching",
+      "details": "A skill or technique related to semantic caching."
+    },
+    {
+      "id": "LLM_FinOps",
+      "type": "Skill",
+      "name": "LLM FinOps",
+      "details": "A skill or operation related to LLM financial operations."
+    },
+    {
+      "id": "Local_Inference_Fine-Tuning",
+      "type": "Skill",
+      "name": "Local Inference & Fine-Tuning",
+      "details": "A skill involving local inference and fine-tuning."
+    },
+    {
+      "id": "RAGAS_Evaluation",
+      "type": "Skill",
+      "name": "RAGAS Evaluation",
+      "details": "A skill or evaluation process related to RAGAS."
+    },
+    {
+      "id": "Instruction_Hierarchy",
+      "type": "Skill",
+      "name": "Instruction Hierarchy",
+      "details": "A skill or technique related to instruction hierarchy."
+    },
+    {
+      "id": "Strategic_Thinking",
+      "type": "SoftSkill",
+      "name": "Strategic Thinking",
+      "details": "A soft skill related to strategic planning."
+    },
+    {
+      "id": "Agile_Collaboration",
+      "type": "SoftSkill",
+      "name": "Agile Collaboration",
+      "details": "A soft skill involving agile collaboration."
+    },
+    {
+      "id": "Problem_Solving",
+      "type": "SoftSkill",
+      "name": "Problem Solving",
+      "details": "A soft skill related to problem-solving abilities."
+    },
+    {
+      "id": "Leadership",
+      "type": "SoftSkill",
+      "name": "Leadership",
+      "details": "A soft skill showcasing leadership qualities."
+    },
+    {
+      "id": "Communication",
+      "type": "SoftSkill",
+      "name": "Communication",
+      "details": "A soft skill related to effective communication."
+    },
+    {
+      "id": "Change_Management",
+      "type": "SoftSkill",
+      "name": "Change Management",
+      "details": "A soft skill involving change management strategies."
+    }
+  ],
+  "relationships": [
+    {
+      "source": "HABITARMOS_GROUP_ESTORESRAINHA",
+      "target": "Lead_AI_Solutions_Architect",
+      "relation": "employed_as"
+    },
+    {
+      "source": "HABITARMOS_GROUP_ESTORESRAINHA",
+      "target": "Senior_Backend_AI_Integration_Engineer",
+      "relation": "employed_as"
+    },
+    {
+      "source": "HABITARMOS_GROUP_ESTORESRAINHA",
+      "target": "Software_Automation_Developer",
+      "relation": "employed_as"
+    },
+    {
+      "source": "sentinel",
+      "target": "LangGraph",
+      "relation": "used"
+    },
+    {
+      "source": "sentinel",
+      "target": "Apache_Kafka",
+      "relation": "used"
+    },
+    {
+      "source": "sentinel",
+      "target": "Citus-sharded_PostgreSQL",
+      "relation": "used"
+    },
+    {
+      "source": "sentinel",
+      "target": "AI_Engineering",
+      "relation": "proved"
+    },
+    {
+      "source": "sentinel",
+      "target": "Multi-Agent_Swarms",
+      "relation": "proved"
+    },
+    {
+      "source": "sentinel",
+      "target": "Semantic_Caching",
+      "relation": "proved"
+    },
+    {
+      "source": "sentinel",
+      "target": "Instruction_Hierarchy",
+      "relation": "proved"
+    },
+    {
+      "source": "Lead_AI_Solutions_Architect",
+      "target": "AI_Engineering",
+      "relation": "proved"
+    },
+    {
+      "source": "Lead_AI_Solutions_Architect",
+      "target": "Agentic_Automation",
+      "relation": "proved"
+    },
+    {
+      "source": "Lead_AI_Solutions_Architect",
+      "target": "Multi-Agent_Swarms",
+      "relation": "proved"
+    },
+    {
+      "source": "Lead_AI_Solutions_Architect",
+      "target": "Model_Context_Protocol_(MCP)",
+      "relation": "proved"
+    },
+    {
+      "source": "Lead_AI_Solutions_Architect",
+      "target": "Corrective_RAG_(CRAG)",
+      "relation": "proved"
+    },
+    {
+      "source": "Lead_AI_Solutions_Architect",
+      "target": "Semantic_Caching",
+      "relation": "proved"
+    },
+    {
+      "source": "Lead_AI_Solutions_Architect",
+      "target": "LLM_FinOps",
+      "relation": "proved"
+    },
+    {
+      "source": "Lead_AI_Solutions_Architect",
+      "target": "Local_Inference_Fine-Tuning",
+      "relation": "proved"
+    },
+    {
+      "source": "Lead_AI_Solutions_Architect",
+      "target": "RAGAS_Evaluation",
+      "relation": "proved"
+    },
+    {
+      "source": "Lead_AI_Solutions_Architect",
+      "target": "Instruction_Hierarchy",
+      "relation": "proved"
+    },
+    {
+      "source": "Senior_Backend_AI_Integration_Engineer",
+      "target": "AI_Engineering",
+      "relation": "proved"
+    },
+    {
+      "source": "Senior_Backend_AI_Integration_Engineer",
+      "target": "Agentic_Automation",
+      "relation": "proved"
+    },
+    {
+      "source": "Senior_Backend_AI_Integration_Engineer",
+      "target": "Corrective_RAG_(CRAG)",
+      "relation": "proved"
+    },
+    {
+      "source": "Senior_Backend_AI_Integration_Engineer",
+      "target": "Local_Inference_Fine-Tuning",
+      "relation": "proved"
+    },
+    {
+      "source": "Senior_Backend_AI_Integration_Engineer",
+      "target": "RAGAS_Evaluation",
+      "relation": "proved"
+    },
+    {
+      "source": "Senior_Backend_AI_Integration_Engineer",
+      "target": "Instruction_Hierarchy",
+      "relation": "proved"
+    },
+    {
+      "source": "Software_Automation_Developer",
+      "target": "AI_Engineering",
+      "relation": "proved"
+    },
+    {
+      "source": "Software_Automation_Developer",
+      "target": "Agentic_Automation",
+      "relation": "proved"
+    },
+    {
+      "source": "Software_Automation_Developer",
+      "target": "Multi-Agent_Swarms",
+      "relation": "proved"
+    },
+    {
+      "source": "Software_Automation_Developer",
+      "target": "Semantic_Caching",
+      "relation": "proved"
+    },
+    {
+      "source": "Software_Automation_Developer",
+      "target": "Instruction_Hierarchy",
+      "relation": "proved"
+    },
+    {
+      "source": "Strategic_Thinking",
+      "target": "Lead_AI_Solutions_Architect",
+      "relation": "proved"
+    },
+    {
+      "source": "Agile_Collaboration",
+      "target": "Lead_AI_Solutions_Architect",
+      "relation": "proved"
+    },
+    {
+      "source": "Problem_Solving",
+      "target": "Lead_AI_Solutions_Architect",
+      "relation": "proved"
+    },
+    {
+      "source": "Leadership",
+      "target": "Lead_AI_Solutions_Architect",
+      "relation": "proved"
+    },
+    {
+      "source": "Communication",
+      "target": "Lead_AI_Solutions_Architect",
+      "relation": "proved"
+    },
+    {
+      "source": "Change_Management",
+      "target": "Lead_AI_Solutions_Architect",
+      "relation": "proved"
+    }
+  ],
+  "global_summary": "As a seasoned AI Solutions Architect, the user specializes in digital art and agentic automation, driving transformative change. With a decade of experience, they optimize operational efficiency and scalability, managing complex AI systems and delivering business value.",
+  "strategic_narrative": "The user's expertise in AI engineering, agentic automation, and multi-agent swarms has led to significant ROI and efficiency gains. Through modular microservices, cloud management, and workflow automation, they've achieved a 60% increase in profitability and a 2085% ROI. Their leadership, strategic thinking, and problem-solving skills have been instrumental in driving enterprise growth and profitability."
+}

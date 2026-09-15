@@ -1,0 +1,60 @@
+{
+  "personal_info": {
+    "name": "YOUR NAME HERE",
+    "location": "City, Country",
+    "phone": "+123456789",
+    "email": "your.email@example.com",
+    "website": "yourportfolio.com",
+    "title": "Senior Full-Stack Engineer | AI Solutions Architect"
+  },
+  "summary": "Experienced software architect and engineer specializing in building high-performance web applications, AI-driven automation workflows, and distributed systems.",
+  "experience": [
+    {
+      "company": "TECH CORP",
+      "role": "Lead Software Engineer",
+      "period": "2021 – Present",
+      "bullets": [
+        "Architected scalable microservices and web applications handling millions of daily requests.",
+        "Integrated AI agents and RAG pipelines into production enterprise workflows.",
+        "Led cross-functional engineering teams using Agile/Scrum practices."
+      ]
+    },
+    {
+      "company": "INNOVATION LABS",
+      "role": "Full-Stack Developer",
+      "period": "2018 – 2021",
+      "bullets": [
+        "Developed frontend user interfaces using React and modern CSS design systems.",
+        "Engineered REST & GraphQL backend services using Node.js and Python."
+      ]
+    }
+  ],
+  "hard_skills": {
+    "AI_Cloud_Systems_Automation": [
+      "LangChain", "LangGraph", "RAG Architecture", "Docker", "Python", "Vector Databases", "n8n"
+    ],
+    "Web_Engineering_Development": [
+      "React", "TypeScript", "Node.js", "FastAPI", "SQL", "TailwindCSS", "REST APIs"
+    ],
+    "Project_Strategy": [
+      "Agile & Scrum", "System Architecture", "Technical Leadership"
+    ]
+  },
+  "certifications": [
+    "AWS Certified Solutions Architect",
+    "Professional Scrum Master I"
+  ],
+  "education": [
+    {
+      "degree": "BSc in Computer Science",
+      "institution": "University of Technology",
+      "details": "Focused on Software Engineering and Artificial Intelligence"
+    }
+  ],
+  "languages": [
+    "English", "Portuguese"
+  ],
+  "soft_skills": [
+    "Problem Solving", "Strategic Thinking", "Team Collaboration"
+  ]
+}
