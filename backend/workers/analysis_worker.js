@@ -10,6 +10,7 @@ const aiService = require('../services/ai_service');
 const cacheService = require('../services/cache_service');
 const vectorEngine = require('../vector_engine');
 const loggerService = require('../services/logger_service');
+const { buildCandidateDigest } = require('../services/cv_digest_service');
 
 const redisConnection = {
     host: process.env.REDIS_HOST || 'redis',
@@ -26,6 +27,12 @@ function initAnalysisWorker() {
             loggerService.info('worker', `Starting isolated BullMQ analysis for Job: ${jobId}`);
 
             let analysisResult = null;
+            const candidateDigest = buildCandidateDigest({
+                jobDescription: description,
+                jobTitle: extractedTitle
+            });
+            const digestBlock = JSON.stringify(candidateDigest);
+            const profileWithDigest = `${kb?.expertProfile || ''}\n\nCANDIDATE_FACT_DIGEST (only cite facts from here):\n${digestBlock}`;
             try {
                 const engineResp = await aiEngineClient.analyzeJob(
                     {
@@ -33,10 +40,18 @@ function initAnalysisWorker() {
                         company: finalCompany,
                         description: description,
                         location: '',
-                        url: `https://www.linkedin.com/jobs/view/${jobId}`
+                        url: `https://www.linkedin.com/jobs/view/${jobId}`,
+                        id: jobId
                     },
-                    kb?.expertProfile || '',
-                    kb?.skills || []
+                    profileWithDigest,
+                    [
+                        ...(kb?.skills || []),
+                        ...(candidateDigest.hard_skills || [])
+                    ],
+                    null,
+                    null,
+                    null,
+                    candidateDigest
                 );
                 analysisResult = (engineResp && engineResp.data) ? engineResp.data : (engineResp || { score: 75, summary: 'Local Engine Analysis' });
             } catch (aiErr) {

@@ -14,14 +14,17 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 
 const knowledgeService = require('../services/knowledge_service');
+const jobService = require('../services/job_service');
 const aiService = require('../services/ai_service');
 const vectorEngine = require('../vector_engine');
 const mcpService = require('../services/mcp_service');
 const vaultService = require('../services/vault_service');
 const loggerService = require('../services/logger_service');
 const telemetryService = require('../services/telemetry_service');
+const aiEngineClient = require('../services/ai_engine_client');
+const { buildCandidateDigest, buildAtsContextInsights } = require('../services/cv_digest_service');
 const { validateBody } = require('../middleware/validation');
-const { PortfolioAnalyzeSchema, CookieConfigSchema } = require('../contracts/schemas');
+const { PortfolioAnalyzeSchema, CookieConfigSchema, CvTailorSchema, IngestProjectSchema, IngestExperienceSchema, IngestLessonSchema } = require('../contracts/schemas');
 
 const upload = multer({
     storage: multer.memoryStorage(),
@@ -194,6 +197,13 @@ router.post('/api/upload-cv', upload.single('file'), async (req, res) => {
 
         if (parsedCV) {
             const cvPath = path.join(__dirname, '..', 'user_cv.json');
+            let existing = {};
+            if (fs.existsSync(cvPath)) {
+                try { existing = JSON.parse(fs.readFileSync(cvPath, 'utf8')); } catch (e) { existing = {}; }
+            }
+            parsedCV.projects = knowledgeService.mergeProjects(parsedCV.projects, existing.projects);
+            if (!parsedCV.preferences && existing.preferences) parsedCV.preferences = existing.preferences;
+            if (!parsedCV.screening && existing.screening) parsedCV.screening = existing.screening;
             fs.writeFileSync(cvPath, JSON.stringify(parsedCV, null, 2), 'utf8');
             console.log(`[UPLOAD] Updated user_cv.json with candidate: ${parsedCV.personal_info?.name}`);
 
@@ -229,6 +239,50 @@ router.post('/api/upload-cv', upload.single('file'), async (req, res) => {
         });
     } catch (error) {
         console.error(`[UPLOAD ERROR] Failed to process ${req.file.originalname}:`, error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/api/cv/ingest-project', validateBody(IngestProjectSchema), async (req, res) => {
+    try {
+        const payload = req.validatedBody || req.body;
+        const { project } = await knowledgeService.ingestStructuredProject(payload);
+        res.json({
+            success: true,
+            project,
+            message: `Projeto "${project.title}" gravado em user_cv.json, identity.relationalProjects e candidate_memory.`
+        });
+    } catch (error) {
+        console.error('[INGEST PROJECT]', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/api/cv/ingest-experience', validateBody(IngestExperienceSchema), async (req, res) => {
+    try {
+        const payload = req.validatedBody || req.body;
+        await knowledgeService.ingestExperienceBullet(payload);
+        res.json({
+            success: true,
+            message: `Bullet adicionado a ${payload.company}.`
+        });
+    } catch (error) {
+        console.error('[INGEST EXPERIENCE]', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.post('/api/cv/ingest-text', validateBody(IngestLessonSchema), async (req, res) => {
+    try {
+        const { text, kind } = req.validatedBody || req.body;
+        const result = await knowledgeService.ingestTeachText(text, kind || 'project_notes');
+        res.json({
+            success: true,
+            ...result,
+            message: 'Texto indexado na memória semântica.'
+        });
+    } catch (error) {
+        console.error('[INGEST TEXT]', error.message);
         res.status(500).json({ error: error.message });
     }
 });
@@ -434,17 +488,1094 @@ router.get('/api/cv/neural', (req, res) => {
                     : []),
             hard_skills: normalizedHardSkills,
             certifications: masterProfile.certifications || neuralIdentity.certifications || [],
-            education: masterProfile.education || [],
-            languages: masterProfile.languages || [],
+            education: masterProfile.education?.length ? masterProfile.education : (neuralIdentity.education || []),
+            languages: masterProfile.languages?.length ? masterProfile.languages : (neuralIdentity.languages || []),
             soft_skills: masterProfile.soft_skills || neuralIdentity.softSkills || [],
             tech_philosophy: neuralIdentity.techPhilosophy || masterProfile.techPhilosophy || "",
-            projects: neuralIdentity.relationalProjects || masterProfile.projects || masterProfile.relationalProjects || []
+            projects: knowledgeService.mergeProjects(masterProfile.projects, neuralIdentity.relationalProjects),
+            books_read: masterProfile.books_read || neuralIdentity.booksRead || []
         };
 
         res.json({ success: true, profile: combinedProfile });
     } catch (error) {
         console.error('[CV API ERROR]', error.message);
         res.status(500).json({ error: 'Failed to retrieve neural CV.' });
+    }
+});
+
+function sanitizeAtsText(value) {
+    if (value == null) return '';
+    if (typeof value !== 'string') return value;
+    return value
+        .replace(/\u2014|\u2013/g, ',')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+/** Prefer full sentences over hard substring (avoids bullets ending mid-word or with ".."). */
+function truncateAtSentence(text, maxLen = 280) {
+    const t = sanitizeAtsText(text);
+    if (!t || t.length <= maxLen) return t;
+    const slice = t.slice(0, maxLen);
+    const lastSentence = Math.max(slice.lastIndexOf('. '), slice.lastIndexOf('; '));
+    if (lastSentence >= Math.floor(maxLen * 0.5)) {
+        return slice.slice(0, lastSentence + 1).trim();
+    }
+    const lastSpace = slice.lastIndexOf(' ');
+    const cut = lastSpace > 48 ? slice.slice(0, lastSpace) : slice;
+    return cut.trim().replace(/[.,;:\s]+$/, '') + '.';
+}
+
+function polishBulletEnding(text) {
+    let t = sanitizeAtsText(text);
+    if (!t) return '';
+    t = t.replace(/(\.\.)+$/, '').replace(/…+$/g, '').trim();
+    if (t && !/[.!?)]$/.test(t)) {
+        t += '.';
+    }
+    return t;
+}
+
+/** Date ranges: keep readable hyphens (never comma between month and Present). */
+function normalizeAtsPeriod(value) {
+    if (value == null) return '';
+    return String(value)
+        .replace(/\u2014|\u2013/g, ' - ')
+        .replace(/\s+to\s+/gi, ' - ')
+        .replace(/\s*-\s*/g, ' - ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function experienceCompanyKey(name) {
+    return (name || '')
+        .toLowerCase()
+        .replace(/estores\s*rainha|estoresrainha/g, 'habitarmos')
+        .replace(/[^a-z0-9]/g, '');
+}
+
+const COMMON_HALLUCINATED_TOOLS = [
+    { re: /\bamazon web services\b/gi, key: 'aws' },
+    { re: /\baws\b/gi, key: 'aws' },
+    { re: /\bmicrosoft azure\b/gi, key: 'azure' },
+    { re: /\bazure\b/gi, key: 'azure' },
+    { re: /\bkubernetes\b/gi, key: 'kubernetes' },
+    { re: /\bk8s\b/gi, key: 'kubernetes' },
+    { re: /\bterraform\b/gi, key: 'terraform' }
+];
+
+function isHabitarmosCompany(name) {
+    const k = experienceCompanyKey(name);
+    return k.includes('habitarmos');
+}
+
+function companiesMatch(a, b) {
+    const ak = experienceCompanyKey(a);
+    const bk = experienceCompanyKey(b);
+    if (!ak || !bk) return false;
+    return ak === bk || ak.includes(bk) || bk.includes(ak);
+}
+
+function periodStart(period) {
+    const p = normalizeAtsPeriod(period);
+    const parts = p.split(' - ');
+    return (parts[0] || p).trim();
+}
+
+function meaningfulTokens(text) {
+    const stop = new Set(['with', 'from', 'that', 'this', 'have', 'been', 'were', 'their', 'through', 'across', 'using', 'into']);
+    return tokenizeForJdMatch(text).filter((t) => t.length > 3 && !stop.has(t));
+}
+
+function buildCompanyEvidenceCorpus(sourceEntries, projects, companyKey) {
+    let text = '';
+    (sourceEntries || []).forEach((e) => {
+        text += ` ${(e.bullets || []).join(' ')} ${e.role || ''}`;
+    });
+    (projects || []).forEach((p) => {
+        if (!companiesMatch(p.company, sourceEntries[0]?.company || '')) return;
+        text += ` ${p.context || ''} ${(p.bullets || []).join(' ')} ${(p.edges_outcomes || p.outcomes || []).join(' ')}`;
+    });
+    return text.toLowerCase();
+}
+
+function bulletHasFactualOverlap(bullet, corpus) {
+    if (!bullet || !corpus) return false;
+    const tokens = meaningfulTokens(bullet);
+    if (!tokens.length) return false;
+    let hits = 0;
+    for (const t of tokens) {
+        if (corpus.includes(t)) hits++;
+    }
+    return hits >= 2;
+}
+
+function rankBulletsForJob(bullets, jobText, limit = 4) {
+    const unique = [];
+    const seen = new Set();
+    for (const b of bullets || []) {
+        const line = guardEnglishField(b);
+        if (!line || seen.has(line)) continue;
+        seen.add(line);
+        unique.push(line);
+    }
+    return unique
+        .sort((a, b) => jdOverlapScore(b, jobText) - jdOverlapScore(a, jobText))
+        .slice(0, limit);
+}
+
+function collectFactualBulletsForCompany(sourceEntries, projects, companyLabel, jobText) {
+    const bullets = (sourceEntries || []).flatMap((e) => e.bullets || []);
+    const fromProjects = (projects || [])
+        .filter((p) => companiesMatch(p.company, companyLabel || sourceEntries[0]?.company || ''))
+        .flatMap((p) => {
+            const title = p.title || p.name || '';
+            const impl = (p.bullets || p.implementation_highlights || []).map((b) =>
+                title ? `${title}: ${b}` : b
+            );
+            const outs = (p.edges_outcomes || p.outcomes || []).map((o) =>
+                title ? `${title}: ${o}` : o
+            );
+            return [...impl, ...outs];
+        });
+    return rankBulletsForJob([...bullets, ...fromProjects], jobText, 12);
+}
+
+function buildAtsTailorAnchors(operational_metrics, rankedProjects, roi_metrics) {
+    const lines = [];
+    if (operational_metrics?.n8n_production_workflows) {
+        const exec = operational_metrics.n8n_executions_last_7_days;
+        lines.push(
+            `Automation scale: ${operational_metrics.n8n_production_workflows} production n8n workflows` +
+                (exec ? ` (~${exec.toLocaleString('en-US')} executions in a recent 7-day window)` : '')
+        );
+    }
+    if (operational_metrics?.phc_erp_sources?.length) {
+        const dbs = operational_metrics.phc_erp_sources
+            .map((s) => `${s.database} (~${s.base_tables_count?.toLocaleString('en-US')} tables)`)
+            .join(', ');
+        lines.push(`PHC ERP cloud ELT sources: ${dbs}`);
+    } else if (operational_metrics?.phc_erp_source?.database) {
+        lines.push(
+            `PHC ERP: ${operational_metrics.phc_erp_source.database} (~${operational_metrics.phc_erp_source.base_tables_count} tables)`
+        );
+    }
+    if (roi_metrics?.portfolio_roi_percent) {
+        lines.push(`Innovation Hub portfolio ROI ~${roi_metrics.portfolio_roi_percent}% on delivered automation`);
+    }
+    (rankedProjects || []).slice(0, 4).forEach((p) => {
+        const title = p.title || p.name;
+        const hit = (p.outcomes || [])[0] || (p.context || '').substring(0, 200);
+        if (title && hit) lines.push(`${title}: ${hit}`);
+    });
+    return lines.filter(Boolean).slice(0, 10);
+}
+
+function ensureRankedProjectsOnCv(tailored, rankedProjects, max = 3) {
+    const ranked = (rankedProjects || []).slice(0, max);
+    const fromAi = tailored.selected_projects || [];
+    const out = [];
+    for (const p of ranked) {
+        const name = sanitizeAtsText(p.title || p.name || '');
+        if (!name) continue;
+        const aiMatch = fromAi.find(
+            (a) => a.name && name.toLowerCase().includes(String(a.name).toLowerCase().slice(0, 24))
+        );
+        const impact = guardEnglishField(
+            polishBulletEnding(
+                aiMatch?.impact ||
+                    (p.outcomes && p.outcomes[0]) ||
+                    (p.bullets && p.bullets[0]) ||
+                    truncateAtSentence(p.context || '', 300)
+            )
+        );
+        if (!impact) continue;
+        if (out.some((x) => x.name === name)) continue;
+        out.push({ name, impact });
+        if (out.length >= max) break;
+    }
+    for (const a of fromAi) {
+        if (out.length >= max) break;
+        const name = sanitizeAtsText(a.name || '');
+        const impact = guardEnglishField(a.impact || '');
+        if (!name || !impact || out.some((x) => x.name === name)) continue;
+        out.push({ name, impact });
+    }
+    tailored.selected_projects = out.slice(0, max);
+    return tailored;
+}
+
+function pickBestSourceBullet(sourceEntries, jobText, aiBullet = '') {
+    const pool = (sourceEntries || []).flatMap((e) => (e.bullets || []).filter(Boolean));
+    if (!pool.length) return guardEnglishField(aiBullet || '');
+    let best = pool[0];
+    let bestScore = -1;
+    for (const b of pool) {
+        let score = jdOverlapScore(b, jobText);
+        const aiTokens = meaningfulTokens(aiBullet);
+        aiTokens.forEach((t) => {
+            if (b.toLowerCase().includes(t)) score += 1;
+        });
+        if (score > bestScore) {
+            bestScore = score;
+            best = b;
+        }
+    }
+    return guardEnglishField(best);
+}
+
+function groundExperienceBullets(experience, fullExperience, projects, jobText) {
+    return (experience || []).map((exp) => {
+        const sources = (fullExperience || []).filter((e) => companiesMatch(e.company, exp.company));
+        const corpus = buildCompanyEvidenceCorpus(sources, projects, experienceCompanyKey(exp.company));
+        const grounded = [];
+        const usedSource = new Set();
+        for (const b of exp.bullets || []) {
+            const cleaned = guardEnglishField(b);
+            if (!cleaned) continue;
+            if (bulletHasFactualOverlap(cleaned, corpus)) {
+                grounded.push(cleaned);
+            } else {
+                const replacement = pickBestSourceBullet(sources, jobText, cleaned);
+                if (replacement && !usedSource.has(replacement)) {
+                    usedSource.add(replacement);
+                    grounded.push(replacement);
+                }
+            }
+        }
+        if (grounded.length < 4) {
+            const ranked = collectFactualBulletsForCompany(sources, projects, exp.company, jobText).filter(
+                (b) => !usedSource.has(b)
+            );
+            for (const line of ranked) {
+                if (grounded.length >= 4) break;
+                if (line && !grounded.includes(line)) {
+                    grounded.push(line);
+                    usedSource.add(line);
+                }
+            }
+        }
+        const companyPool = collectFactualBulletsForCompany(sources, projects, exp.company, jobText);
+        const finalBullets = rankBulletsForJob(
+            [...new Set([...grounded, ...companyPool])],
+            jobText,
+            4
+        );
+        return { ...exp, bullets: finalBullets };
+    });
+}
+
+function consolidateHabitarmosInExperience(tailoredExperience, fullExperience, projects, jobText, maxSlots = 3) {
+    const habitarmosRoles = (fullExperience || []).filter((e) => isHabitarmosCompany(e.company));
+    if (habitarmosRoles.length < 2) return tailoredExperience;
+
+    const newest = habitarmosRoles[0];
+    const oldest = habitarmosRoles[habitarmosRoles.length - 1];
+    const roleTimeline = habitarmosRoles.map((e) => ({
+        role: e.role,
+        period: normalizeAtsPeriod(e.period)
+    }));
+    const spanPeriod = `${periodStart(oldest.period)} - Present`;
+
+    const poolBullets = collectFactualBulletsForCompany(
+        habitarmosRoles,
+        projects,
+        newest.company,
+        jobText
+    );
+    const bullets = poolBullets.slice(0, 4);
+
+    const consolidated = {
+        company: newest.company,
+        role: newest.role,
+        period: spanPeriod,
+        role_timeline: roleTimeline,
+        bullets
+    };
+
+    const others = (tailoredExperience || []).filter((e) => !isHabitarmosCompany(e.company));
+    return [consolidated, ...others].slice(0, maxSlots);
+}
+
+function buildAllowedTechTerms(combinedProfile) {
+    const terms = new Set();
+    (combinedProfile.hard_skills || []).forEach((s) => {
+        const low = String(s).toLowerCase().trim();
+        if (low) terms.add(low);
+    });
+    (combinedProfile.projects || []).forEach((p) => {
+        flattenProjectTech(p).forEach((t) => terms.add(String(t).toLowerCase()));
+        (p.edges_skills || []).forEach((t) => terms.add(String(t).toLowerCase()));
+    });
+    (combinedProfile.soft_skills || []).forEach((s) => terms.add(String(s).toLowerCase()));
+    if (terms.has('google cloud platform (gcp)')) terms.add('gcp');
+    if (terms.has('google cloud platform (gcp)')) terms.add('google cloud');
+    return terms;
+}
+
+function termIsAllowed(key, allowedTerms) {
+    if (allowedTerms.has(key)) return true;
+    for (const t of allowedTerms) {
+        if (t.includes(key) || key.includes(t)) return true;
+    }
+    return false;
+}
+
+function stripUnauthorizedClaimsFromText(text, allowedTerms) {
+    if (!text || typeof text !== 'string') return text;
+    let out = text;
+    for (const { re, key } of COMMON_HALLUCINATED_TOOLS) {
+        if (!termIsAllowed(key, allowedTerms)) {
+            out = out.replace(re, '');
+        }
+    }
+    return out.replace(/\s+/g, ' ').replace(/\s+,/g, ',').trim();
+}
+
+function stripUnauthorizedClaimsFromCv(tailored, combinedProfile) {
+    const allowed = buildAllowedTechTerms(combinedProfile);
+    const out = { ...tailored };
+    out.summary = stripUnauthorizedClaimsFromText(out.summary, allowed);
+    out.target_headline = stripUnauthorizedClaimsFromText(out.target_headline, allowed);
+    out.hard_skills = (out.hard_skills || []).filter((skill) => {
+        const low = String(skill).toLowerCase();
+        for (const { key } of COMMON_HALLUCINATED_TOOLS) {
+            if (low.includes(key) && !termIsAllowed(key, allowed)) return false;
+        }
+        return true;
+    });
+    out.experience = (out.experience || []).map((exp) => ({
+        ...exp,
+        bullets: (exp.bullets || []).map((b) => stripUnauthorizedClaimsFromText(b, allowed)).filter(Boolean)
+    }));
+    if (out.core_competencies && typeof out.core_competencies === 'object') {
+        for (const key of Object.keys(out.core_competencies)) {
+            if (Array.isArray(out.core_competencies[key])) {
+                out.core_competencies[key] = out.core_competencies[key]
+                    .map((s) => stripUnauthorizedClaimsFromText(s, allowed))
+                    .filter(Boolean);
+            }
+        }
+    }
+    return out;
+}
+
+function alignExperienceWithSource(aiExperience, sourceExperience) {
+    const sources = Array.isArray(sourceExperience) ? sourceExperience : [];
+    const used = new Set();
+    return (aiExperience || []).map((exp) => {
+        const ck = experienceCompanyKey(exp.company);
+        const roleWords = (exp.role || '').toLowerCase().split(/\s+/).filter((w) => w.length > 3);
+        let bestIdx = -1;
+        let bestScore = 0;
+        sources.forEach((s, idx) => {
+            if (used.has(idx)) return;
+            const sk = experienceCompanyKey(s.company);
+            if (!sk || !ck) return;
+            if (sk !== ck && !sk.includes(ck) && !ck.includes(sk)) return;
+            const sr = (s.role || '').toLowerCase();
+            let score = 1;
+            roleWords.forEach((w) => {
+                if (sr.includes(w)) score += 2;
+            });
+            if (score > bestScore) {
+                bestScore = score;
+                bestIdx = idx;
+            }
+        });
+        const period = normalizeAtsPeriod(exp.period);
+        if (bestIdx >= 0) {
+            used.add(bestIdx);
+            const match = sources[bestIdx];
+            return {
+                ...exp,
+                company: match.company,
+                role: match.role,
+                period: normalizeAtsPeriod(match.period),
+                bullets: (exp.bullets || []).slice(0, 4)
+            };
+        }
+        return { ...exp, period, bullets: (exp.bullets || []).slice(0, 4) };
+    });
+}
+
+function normalizeAtsEducationLine(entry) {
+    if (typeof entry === 'string') return sanitizeAtsText(entry);
+    if (!entry || typeof entry !== 'object') return '';
+    const degree = entry.degree || entry.title || '';
+    const institution = entry.institution || entry.school || '';
+    const details = entry.details || entry.period || entry.year || '';
+    const line = [degree, institution].filter(Boolean).join(', ');
+    return sanitizeAtsText(details ? `${line} (${details})` : line);
+}
+
+function normalizeAtsCertLine(entry) {
+    if (typeof entry === 'string') return sanitizeAtsText(entry);
+    if (!entry || typeof entry !== 'object') return '';
+    const name = entry.name || entry.title || entry.certification || '';
+    const issuer = entry.issuer || entry.organization || '';
+    const year = entry.year || entry.date || '';
+    return sanitizeAtsText([name, issuer, year].filter(Boolean).join(', '));
+}
+
+const PT_LEAK_PATTERN = /\b(não|nao|como|para|gestão|gestao|empresa|vaga|oportunidade|experiência|experiencia|desenvolvimento|automação|automacao|sistemas|utilizador|equipa|comercial|obra|distribuidor|formação|formacao|certificação|certificacao)\b/i;
+
+function looksLikePortuguese(text) {
+    if (!text || typeof text !== 'string') return false;
+    return PT_LEAK_PATTERN.test(text);
+}
+
+function guardEnglishField(text) {
+    const cleaned = sanitizeAtsText(text);
+    if (!cleaned) return '';
+    if (looksLikePortuguese(cleaned)) return '';
+    return cleaned;
+}
+
+function tokenizeForJdMatch(text) {
+    return (text || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9+#./\s-]/g, ' ')
+        .split(/\s+/)
+        .filter((t) => t.length > 2);
+}
+
+function jdOverlapScore(blob, jobText) {
+    const jobTokens = tokenizeForJdMatch(jobText);
+    if (!jobTokens.length) return 0;
+    const blobStr = typeof blob === 'string' ? blob : JSON.stringify(blob);
+    const blobTokens = tokenizeForJdMatch(blobStr);
+    let hits = 0;
+    for (const t of blobTokens) {
+        const matched = jobTokens.some((jt) => jt === t || jt.includes(t) || t.includes(jt));
+        if (matched) hits++;
+    }
+    return hits;
+}
+
+function flattenProjectTech(project) {
+    const out = [];
+    if (Array.isArray(project.technologies)) out.push(...project.technologies);
+    if (Array.isArray(project.tech_stack)) out.push(...project.tech_stack);
+    if (project.tech_stack && typeof project.tech_stack === 'object' && !Array.isArray(project.tech_stack)) {
+        Object.values(project.tech_stack).forEach((v) => {
+            if (Array.isArray(v)) out.push(...v);
+            else if (typeof v === 'string') out.push(v);
+        });
+    }
+    if (Array.isArray(project.edges_skills)) out.push(...project.edges_skills);
+    const unique = [];
+    const seen = new Set();
+    for (const item of out) {
+        const s = String(item).trim();
+        if (!s) continue;
+        const key = s.toLowerCase();
+        if (!seen.has(key)) {
+            seen.add(key);
+            unique.push(s);
+        }
+    }
+    return unique.slice(0, 24);
+}
+
+function mapProjectForAtsSource(p) {
+    return {
+        title: p.title || p.name,
+        company: p.company,
+        period: p.period || '',
+        repository: p.repository || '',
+        context: sanitizeAtsText((p.context || p.description || '').substring(0, 520)),
+        modules: Array.isArray(p.modules) ? p.modules.slice(0, 6).map(sanitizeAtsText) : [],
+        bullets: (p.bullets || p.implementation_highlights || []).slice(0, 6).map(sanitizeAtsText),
+        outcomes: (p.edges_outcomes || p.outcomes || []).slice(0, 6).map(sanitizeAtsText),
+        tech: flattenProjectTech(p),
+        edges_skills: (p.edges_skills || []).slice(0, 12).map(sanitizeAtsText)
+    };
+}
+
+function buildAtsSourcePayload(combinedProfile, neuralIdentity, masterProfile, jobContext = {}) {
+    const jdText = `${jobContext.jobTitle || ''} ${jobContext.jobDescription || ''}`;
+    const priorityBoost = { flagship: 15, high: 8 };
+
+    const rankedProjects = (combinedProfile.projects || [])
+        .filter((p) => p && p.portfolio_priority !== 'low')
+        .sort((a, b) => {
+            const scoreA = jdOverlapScore(a, jdText) + (priorityBoost[a.portfolio_priority] || 0);
+            const scoreB = jdOverlapScore(b, jdText) + (priorityBoost[b.portfolio_priority] || 0);
+            return scoreB - scoreA;
+        })
+        .slice(0, 6)
+        .map(mapProjectForAtsSource);
+
+    const rankedExperience = (combinedProfile.experience || [])
+        .sort((a, b) => {
+            const blobA = `${a.role} ${a.company} ${(a.bullets || []).join(' ')}`;
+            const blobB = `${b.role} ${b.company} ${(b.bullets || []).join(' ')}`;
+            return jdOverlapScore(blobB, jdText) - jdOverlapScore(blobA, jdText);
+        })
+        .slice(0, 4)
+        .map((exp) => ({
+            company: exp.company,
+            role: exp.role,
+            period: exp.period,
+            location: exp.location,
+            bullets: rankBulletsForJob(exp.bullets || [], jdText, 6).map(sanitizeAtsText)
+        }));
+
+    const operational_metrics =
+        masterProfile?.operational_metrics ||
+        neuralIdentity.operational_metrics ||
+        null;
+    const dev_tooling = masterProfile?.dev_tooling || null;
+
+    const tailor_anchors = buildAtsTailorAnchors(
+        operational_metrics,
+        rankedProjects,
+        neuralIdentity.roi_metrics || null
+    );
+
+    return {
+        personal_info: combinedProfile.personal_info,
+        summary: sanitizeAtsText((combinedProfile.summary || '').substring(0, 900)),
+        experience: rankedExperience,
+        hard_skills: (combinedProfile.hard_skills || []).slice(0, 80),
+        soft_skills: combinedProfile.soft_skills,
+        education: combinedProfile.education,
+        certifications: combinedProfile.certifications,
+        languages: combinedProfile.languages,
+        projects: rankedProjects,
+        operational_metrics,
+        dev_tooling,
+        roi_metrics: neuralIdentity.roi_metrics || null,
+        tech_philosophy: neuralIdentity.techPhilosophy || null,
+        tailor_anchors
+    };
+}
+
+/** Keep Groq on-demand TPM (~8k) by sending a dense, capped source blob. */
+function stringifyAtsSourceForTailorPrompt(atsSource, maxChars = 9000) {
+    const compact = {
+        personal_info: atsSource.personal_info,
+        summary: atsSource.summary,
+        experience: (atsSource.experience || []).map((e) => ({
+            company: e.company,
+            role: e.role,
+            period: e.period,
+            bullets: (e.bullets || []).slice(0, 4)
+        })),
+        hard_skills: (atsSource.hard_skills || []).slice(0, 24),
+        education: atsSource.education,
+        certifications: atsSource.certifications,
+        projects: (atsSource.projects || []).slice(0, 4),
+        operational_metrics: atsSource.operational_metrics,
+        tailor_anchors: atsSource.tailor_anchors
+    };
+    let json = JSON.stringify(compact);
+    if (json.length > maxChars) {
+        compact.projects = (compact.projects || []).slice(0, 2);
+        compact.hard_skills = (compact.hard_skills || []).slice(0, 16);
+        json = JSON.stringify(compact);
+    }
+    if (json.length > maxChars) return json.substring(0, maxChars);
+    return json;
+}
+
+const RETIRED_PORTFOLIO_HOST_RE = /alyekseyenko\.ovh/i;
+const GITHUB_PORTFOLIO_URL = 'https://github.com/alyekseyenko';
+const DEFAULT_PUBLIC_PROFILE_URL = 'https://www.linkedin.com/in/vadym-alyekseyenko-0113b11b0/';
+
+function scrubRetiredPortfolioUrls(text) {
+    if (!text || typeof text !== 'string') return text;
+    let t = text;
+    t = t.replace(/https?:\/\/(?:www\.)?alyekseyenko\.ovh[^\s,;)]*/gi, GITHUB_PORTFOLIO_URL);
+    t = t.replace(/alyekseyenko\.ovh[^\s,;)]*/gi, 'github.com/alyekseyenko');
+    t = t.replace(/\(portfolio:\s*alyekseyenko\.ovh\)/gi, '(production at HABITARMOS)');
+    t = t.replace(/published on alyekseyenko\.ovh[^:]*:/gi, 'Portfolio case study:');
+    t = t.replace(/\bon my site\b/gi, 'in open-source portfolio');
+    return t.replace(/\s+/g, ' ').trim();
+}
+
+function normalizePublicWebsite(url) {
+    const u = String(url || '').trim();
+    if (!u || RETIRED_PORTFOLIO_HOST_RE.test(u)) return DEFAULT_PUBLIC_PROFILE_URL;
+    return u;
+}
+
+function applyAtsSanitization(tailored) {
+    const out = { ...tailored };
+    if (out.personal_info && typeof out.personal_info === 'object') {
+        out.personal_info = {
+            ...out.personal_info,
+            website: normalizePublicWebsite(out.personal_info.website)
+        };
+    }
+    out.summary = scrubRetiredPortfolioUrls(guardEnglishField(out.summary || ''));
+    out.target_headline = scrubRetiredPortfolioUrls(guardEnglishField(out.target_headline || ''));
+    out.fit_notes = scrubRetiredPortfolioUrls(guardEnglishField(out.fit_notes || ''));
+    out.hard_skills = (out.hard_skills || []).map(sanitizeAtsText).filter(Boolean);
+    out.keywords_used = (out.keywords_used || []).map(sanitizeAtsText).filter(Boolean);
+    out.experience = (out.experience || []).map((exp) => ({
+        ...exp,
+        company: sanitizeAtsText(exp.company || ''),
+        role: sanitizeAtsText(exp.role || ''),
+        period: normalizeAtsPeriod(exp.period || ''),
+        role_timeline: Array.isArray(exp.role_timeline)
+            ? exp.role_timeline.map((rt) => ({
+                role: sanitizeAtsText(rt.role || ''),
+                period: normalizeAtsPeriod(rt.period || '')
+            }))
+            : undefined,
+        bullets: (exp.bullets || [])
+            .map((b) => polishBulletEnding(scrubRetiredPortfolioUrls(guardEnglishField(b))))
+            .filter(Boolean)
+    }));
+    out.education = (out.education || []).map(normalizeAtsEducationLine).filter(Boolean);
+    out.certifications = (out.certifications || []).map(normalizeAtsCertLine).filter(Boolean);
+    if (out.core_competencies && typeof out.core_competencies === 'object') {
+        for (const key of Object.keys(out.core_competencies)) {
+            const list = out.core_competencies[key];
+            if (Array.isArray(list)) {
+                out.core_competencies[key] = list.map(guardEnglishField).filter(Boolean);
+            }
+        }
+    }
+    if (Array.isArray(out.selected_projects)) {
+        out.selected_projects = out.selected_projects.map((p) => ({
+            name: sanitizeAtsText(p.name || p.title || ''),
+            impact: polishBulletEnding(
+                scrubRetiredPortfolioUrls(guardEnglishField(p.impact || p.one_liner || ''))
+            )
+        })).filter((p) => p.name);
+    }
+    return out;
+}
+
+function loadMasterProfileBundle() {
+    const cvPath = path.join(__dirname, '..', 'user_cv.json');
+    const examplePath = path.join(__dirname, '..', 'user_cv.json.example');
+    const activePath = fs.existsSync(cvPath) ? cvPath : (fs.existsSync(examplePath) ? examplePath : null);
+
+    let masterProfile = {};
+    if (activePath) {
+        masterProfile = JSON.parse(fs.readFileSync(activePath, 'utf8'));
+    }
+
+    const kb = knowledgeService.knowledgeBase;
+    const neuralIdentity = kb.identity || {};
+
+    const cvHardSkills = Array.isArray(masterProfile.hard_skills)
+        ? masterProfile.hard_skills
+        : (typeof masterProfile.hard_skills === 'object' && masterProfile.hard_skills !== null)
+            ? Object.values(masterProfile.hard_skills).flat()
+            : [];
+
+    const normalizedHardSkills = cvHardSkills.length > 0
+        ? cvHardSkills
+        : (neuralIdentity.topSkills?.length ? neuralIdentity.topSkills : (kb.skills || []));
+
+    const combinedProfile = {
+        personal_info: {
+            ...(neuralIdentity.personal_info || {}),
+            ...(masterProfile.personal_info || {}),
+            name: masterProfile.personal_info?.name || neuralIdentity.personal_info?.name || 'Candidate',
+            title: masterProfile.personal_info?.title || neuralIdentity.personal_info?.title || neuralIdentity.industryNiche || 'Professional',
+            email: masterProfile.personal_info?.email || neuralIdentity.personal_info?.email || '',
+            location: masterProfile.personal_info?.location || neuralIdentity.personal_info?.location || '',
+            phone: masterProfile.personal_info?.phone || neuralIdentity.personal_info?.phone || '',
+            website: normalizePublicWebsite(
+                masterProfile.personal_info?.website || neuralIdentity.personal_info?.website || ''
+            )
+        },
+        summary: masterProfile.summary || neuralIdentity.summary || '',
+        experience: (masterProfile.experience?.length)
+            ? masterProfile.experience
+            : (neuralIdentity.experience || []).map(exp => ({
+                company: exp.company,
+                role: exp.role,
+                period: exp.year || exp.period,
+                bullets: Array.isArray(exp.description) ? exp.description : [exp.description].filter(Boolean)
+            })),
+        hard_skills: normalizedHardSkills,
+        certifications: masterProfile.certifications || neuralIdentity.certifications || [],
+        education: masterProfile.education?.length ? masterProfile.education : (neuralIdentity.education || []),
+        languages: masterProfile.languages?.length ? masterProfile.languages : (neuralIdentity.languages || []),
+        soft_skills: masterProfile.soft_skills || neuralIdentity.softSkills || [],
+        projects: knowledgeService.mergeProjects(masterProfile.projects, neuralIdentity.relationalProjects),
+        books_read: masterProfile.books_read || neuralIdentity.booksRead || [],
+        operational_metrics: masterProfile.operational_metrics || neuralIdentity.operational_metrics,
+        dev_tooling: masterProfile.dev_tooling
+    };
+
+    return { masterProfile, neuralIdentity, combinedProfile };
+}
+
+function admissionChanceMeta(percent) {
+    const score = Math.min(98, Math.max(5, Math.round(percent)));
+    let level = 'low';
+    let label_pt = 'Chance baixa';
+    let label_en = 'Low chance';
+    if (score >= 80) {
+        level = 'high';
+        label_pt = 'Chance alta';
+        label_en = 'High chance';
+    } else if (score >= 65) {
+        level = 'good';
+        label_pt = 'Boa chance';
+        label_en = 'Good chance';
+    } else if (score >= 45) {
+        level = 'moderate';
+        label_pt = 'Chance moderada';
+        label_en = 'Moderate chance';
+    }
+    return { level, label_pt, label_en };
+}
+
+function keywordOverlapMeta(percent) {
+    const score = Math.min(98, Math.max(5, Math.round(percent)));
+    let level = 'low';
+    let label_en = 'Limited keyword fit';
+    let label_pt = 'Pouca sobreposição';
+    if (score >= 80) {
+        level = 'high';
+        label_en = 'Strong keyword fit';
+        label_pt = 'Forte sobreposição';
+    } else if (score >= 65) {
+        level = 'good';
+        label_en = 'Solid keyword fit';
+        label_pt = 'Boa sobreposição';
+    } else if (score >= 45) {
+        level = 'moderate';
+        label_en = 'Partial keyword fit';
+        label_pt = 'Sobreposição parcial';
+    }
+    return { level, label_en, label_pt, overlap_label_en: 'Keyword overlap' };
+}
+
+async function resolveAtsJobInput(validatedBody) {
+    const body = validatedBody || {};
+    const pastedDescription = (body.jobDescription || '').trim();
+    const jobUrl = (body.jobUrl || '').trim();
+    const overrideTitle = (body.jobTitle || '').trim();
+    const overrideCompany = (body.company || '').trim();
+
+    if (jobUrl) {
+        try {
+            const resolved = await jobService.resolveJobPostingFromUrl(jobUrl);
+            const description =
+                pastedDescription.length >= 10 ? pastedDescription : resolved.description;
+            return {
+                jobDescription: description,
+                title: overrideTitle || resolved.title || 'Target Role',
+                companyName: overrideCompany || resolved.company || 'Target Company',
+                jobUrl: resolved.url || jobUrl,
+                job_resolution: {
+                    source: resolved.source,
+                    location: resolved.location || '',
+                    fetched_from_url: true
+                }
+            };
+        } catch (urlErr) {
+            if (pastedDescription.length >= 10) {
+                console.warn('[ATS TAILOR] Job URL fetch failed, using pasted description:', urlErr.message);
+                return {
+                    jobDescription: pastedDescription,
+                    title: overrideTitle || 'Target Role',
+                    companyName: overrideCompany || 'Target Company',
+                    jobUrl,
+                    job_resolution: {
+                        source: 'pasted_fallback',
+                        location: '',
+                        fetched_from_url: false,
+                        url_error: urlErr.message
+                    }
+                };
+            }
+            throw urlErr;
+        }
+    }
+
+    return {
+        jobDescription: pastedDescription,
+        title: overrideTitle || 'Target Role',
+        companyName: overrideCompany || 'Target Company',
+        jobUrl: null,
+        job_resolution: null
+    };
+}
+
+async function runAtsAgentBriefing(jobData, combinedProfile, neuralIdentity, candidateDigest, correlationId) {
+    const profileBrief = [
+        combinedProfile.summary || '',
+        '',
+        'CANDIDATE_FACT_DIGEST (facts only):',
+        JSON.stringify(candidateDigest).substring(0, 14000)
+    ].join('\n');
+    const skills = [
+        ...(combinedProfile.hard_skills || []),
+        ...(neuralIdentity.topSkills || []),
+        ...(knowledgeService.getAggregateUserSkills() || [])
+    ];
+    const resp = await aiEngineClient.atsBriefing(
+        jobData,
+        profileBrief,
+        skills,
+        candidateDigest,
+        correlationId
+    );
+    if (!resp.success || !resp.data) return null;
+    return resp.data;
+}
+
+// 9a. One-page ATS CV from job URL and/or pasted description (+ Scout/Strategist briefing)
+router.post('/api/cv/tailor', validateBody(CvTailorSchema), async (req, res) => {
+    try {
+        const resolvedInput = await resolveAtsJobInput(req.validatedBody || req.body);
+        const jobDescription = resolvedInput.jobDescription;
+        const title = resolvedInput.title;
+        const companyName = resolvedInput.companyName;
+
+        if (!jobDescription || jobDescription.trim().length < 10) {
+            return res.status(400).json({ error: 'Job description is too short after URL resolution.' });
+        }
+
+        console.log(
+            `[ATS TAILOR] Generating one-page CV for ${title} @ ${companyName}` +
+                (resolvedInput.job_resolution ? ` (from ${resolvedInput.job_resolution.source})` : '')
+        );
+
+        const { combinedProfile, neuralIdentity, masterProfile } = loadMasterProfileBundle();
+
+        let memoryFragments = [];
+        try {
+            memoryFragments = await vectorEngine.searchCandidateMemory(jobDescription, 12);
+        } catch (memErr) {
+            console.warn('[ATS TAILOR] Memory search skipped:', memErr.message);
+        }
+
+        const memoryBlock = memoryFragments.length
+            ? memoryFragments
+                  .slice(0, 6)
+                  .map((m, i) => `[${i + 1}] (${m.source}): ${m.text.substring(0, 520)}`)
+                  .join('\n\n')
+            : '(No additional memory fragments found; using CV and identity only.)';
+
+        const atsSource = buildAtsSourcePayload(combinedProfile, neuralIdentity, masterProfile, {
+            jobDescription,
+            jobTitle: title
+        });
+        const rankedProjectsForCv = atsSource.projects || [];
+
+        const candidateDigest = buildCandidateDigest({
+            jobDescription,
+            jobTitle: title
+        });
+        const contextInsights = buildAtsContextInsights(
+            { jobDescription, jobTitle: title },
+            memoryFragments,
+            candidateDigest
+        );
+
+        let agentBriefing = null;
+        try {
+            agentBriefing = await runAtsAgentBriefing(
+                {
+                    title,
+                    company: companyName,
+                    description: jobDescription,
+                    location: resolvedInput.job_resolution?.location || '',
+                    url: resolvedInput.jobUrl || ''
+                },
+                combinedProfile,
+                neuralIdentity,
+                candidateDigest,
+                req.correlationId
+            );
+        } catch (briefErr) {
+            console.warn('[ATS TAILOR] Agent briefing skipped:', briefErr.message);
+        }
+
+        const agentBriefingBlock = agentBriefing
+            ? `
+AGENT BRIEFING (Scout + Strategist — emphasis only; never invent facts beyond CANDIDATE SOURCE):
+SCOUT REPORT:
+${(agentBriefing.scout_report || '').substring(0, 1600)}
+
+STRATEGY ALIGNMENT:
+${(agentBriefing.strategy_analysis || '').substring(0, 1600)}
+`
+            : '(Agent briefing unavailable — using CV source and memory only.)';
+
+        const candidateForMatch = {
+            title: title || combinedProfile.personal_info?.title || 'Professional',
+            skills: [
+                ...(combinedProfile.hard_skills || []),
+                ...(neuralIdentity.topSkills || []),
+                ...(knowledgeService.getAggregateUserSkills() || []),
+                ...(candidateDigest.hard_skills || []),
+                ...(candidateDigest.top_project_skills || [])
+            ]
+        };
+        const heuristicFit = jobService.calculateMatchAnalysis(jobDescription, title, candidateForMatch);
+
+        const prompt = `
+You are a senior technical recruiter and ATS resume writer.
+Produce a single one-page resume tailored to the job below.
+
+TARGET JOB:
+Title: ${title}
+Company: ${companyName}
+Description:
+${jobDescription.substring(0, 4800)}
+
+CANDIDATE SOURCE (facts only; do not invent):
+${stringifyAtsSourceForTailorPrompt(atsSource)}
+
+RELEVANT MEMORY (use only if consistent with candidate source):
+${memoryBlock}
+
+${agentBriefingBlock}
+
+WRITING RULES:
+1. FACTS: Never invent employers, titles, dates, degrees, certifications, or metrics. If a metric is not in the source, omit it.
+2. LANGUAGE: Write every field in professional English (US). Translate Portuguese source material; do not output Portuguese in the JSON.
+3. TONE: Calm, specific, recruiter-ready. No hype, no superlatives (avoid: elite, world-class, cutting-edge, rockstar, ninja, passionate). No marketing slogans.
+4. PUNCTUATION: No em dashes in prose. For period fields use ASCII hyphens only (example: Jan 2024 - Dec 2025).
+5. ATS: Mirror exact job phrases where truthful. Each bullet: verb + scope + outcome (metrics only if sourced). Every bullet must be a complete English sentence ending with a period. Never end with ".." or "…" or cut off mid-phrase.
+6. SELECTION: Use roles from CANDIDATE SOURCE experience (pre-ranked). Do not merge two jobs into one. Do not invent Scrum-only titles if the source title is engineering or transformation lead.
+7. DATES AND TITLES: Copy company and period EXACTLY from the matching entry in CANDIDATE SOURCE experience. Copy role title verbatim from source; align the job only via target_headline, summary, and bullets (truthful emphasis).
+8. ONE PAGE: Summary 50-70 words; max 3 roles from source; max 4 bullets per role; 14-18 hard_skills.
+9. ANCHORS: When tailor_anchors or operational_metrics appear in CANDIDATE SOURCE, weave at least two sourced metrics or project outcomes into summary or bullets (only if relevant to the job).
+10. PROJECTS: Prefer selected_projects from the highest-ranked entries in CANDIDATE SOURCE projects; use outcomes verbatim in spirit, one sentence each.
+
+Return ONLY valid JSON:
+{
+  "personal_info": { "name": "...", "title": "job-aligned headline", "email": "...", "phone": "...", "location": "...", "website": "..." },
+  "target_headline": "one line under the name for this application",
+  "summary": "...",
+  "core_competencies": {
+    "leadership_and_delivery": ["..."],
+    "technical": ["..."],
+    "platforms_and_tools": ["..."]
+  },
+  "experience": [{ "company": "...", "role": "...", "period": "...", "bullets": ["..."] }],
+  "selected_projects": [{ "name": "...", "impact": "one sentence, factual" }],
+  "hard_skills": ["..."],
+  "education": ["Degree, Institution (year)"],
+  "certifications": ["Name, Issuer (year)"],
+  "keywords_used": ["8-14 exact job phrases reflected in the CV"],
+  "fit_notes": "2-3 sentences in English for the candidate on what was emphasized",
+  "admission_chance_percent": 0,
+  "chance_rationale": "1-2 sentences in English on realistic ATS + recruiter screen odds (not an offer guarantee)"
+}
+
+Set admission_chance_percent honestly (0-100). Heuristic calibration: ${heuristicFit.score}/100.
+`;
+
+        const raw = await aiService.getCombinedAICompletion(
+            prompt,
+            'You write ATS resumes. Output ONLY valid JSON. All string values must be professional English.',
+            true
+        );
+        const jsonMatch = raw.match(/\{[\s\S]*\}/);
+        const cleanedJson = jsonMatch ? jsonMatch[0] : raw;
+        let aiResult = {};
+        try {
+            aiResult = JSON.parse(cleanedJson);
+        } catch (parseErr) {
+            console.error('[ATS TAILOR] JSON parse failed:', parseErr.message);
+            return res.status(502).json({ error: 'AI returned invalid JSON for tailored CV.' });
+        }
+
+        let tailored = {
+            personal_info: {
+                ...combinedProfile.personal_info,
+                ...(aiResult.personal_info || {}),
+                title: aiResult.personal_info?.title || combinedProfile.personal_info.title
+            },
+            target_headline: aiResult.target_headline || '',
+            summary: aiResult.summary || '',
+            core_competencies: aiResult.core_competencies || null,
+            experience: (Array.isArray(aiResult.experience) ? aiResult.experience : []).slice(0, 3).map(exp => ({
+                ...exp,
+                bullets: (exp.bullets || []).slice(0, 4)
+            })),
+            selected_projects: Array.isArray(aiResult.selected_projects) ? aiResult.selected_projects.slice(0, 4) : [],
+            hard_skills: (Array.isArray(aiResult.hard_skills) && aiResult.hard_skills.length
+                ? aiResult.hard_skills
+                : (combinedProfile.hard_skills || []).slice(0, 18)).slice(0, 18),
+            education: (Array.isArray(aiResult.education) && aiResult.education.length
+                ? aiResult.education
+                : combinedProfile.education || []),
+            certifications: (Array.isArray(aiResult.certifications) && aiResult.certifications.length
+                ? aiResult.certifications
+                : combinedProfile.certifications || []),
+            keywords_used: Array.isArray(aiResult.keywords_used) ? aiResult.keywords_used : [],
+            fit_notes: aiResult.fit_notes || ''
+        };
+        const jdText = `${title} ${jobDescription}`;
+        tailored.experience = alignExperienceWithSource(tailored.experience, combinedProfile.experience);
+        tailored.experience = consolidateHabitarmosInExperience(
+            tailored.experience,
+            combinedProfile.experience,
+            combinedProfile.projects,
+            jdText,
+            3
+        );
+        tailored.experience = groundExperienceBullets(
+            tailored.experience,
+            combinedProfile.experience,
+            combinedProfile.projects,
+            jdText
+        );
+        tailored = applyAtsSanitization(tailored);
+        tailored = stripUnauthorizedClaimsFromCv(tailored, combinedProfile);
+        ensureRankedProjectsOnCv(tailored, rankedProjectsForCv, 3);
+
+        const keywordOverlap = Math.min(98, Math.max(5, heuristicFit.score));
+        const overlapMeta = keywordOverlapMeta(keywordOverlap);
+
+        const fit_assessment = {
+            admission_chance_percent: keywordOverlap,
+            match_score: heuristicFit.score,
+            keyword_overlap_only: true,
+            level: overlapMeta.level,
+            label_pt: overlapMeta.label_pt,
+            label_en: overlapMeta.label_en,
+            overlap_label_en: overlapMeta.overlap_label_en,
+            matched_skills: heuristicFit.matched || [],
+            skills_gaps: heuristicFit.missing || [],
+            work_area: heuristicFit.workArea,
+            breakdown: heuristicFit.breakdown,
+            chance_rationale: guardEnglishField(aiResult.chance_rationale || aiResult.fit_notes || ''),
+            disclaimer_pt: 'Sobreposição de palavras-chave com a descrição da vaga. Não é o score do ATS da empresa nem probabilidade de entrevista.',
+            disclaimer_en: 'Keyword overlap with the job description only. Not the employer ATS score and not an interview probability.'
+        };
+
+        res.json({
+            success: true,
+            tailored_cv: tailored,
+            fit_assessment,
+            context_insights: contextInsights,
+            target: { jobTitle: title, company: companyName, jobUrl: resolvedInput.jobUrl || undefined },
+            job_resolution: resolvedInput.job_resolution,
+            agent_trace: agentBriefing?.agent_trace || [],
+            job_context: {
+                title,
+                company: companyName,
+                description: jobDescription,
+                jobUrl: resolvedInput.jobUrl || null
+            }
+        });
+    } catch (error) {
+        console.error('[ATS TAILOR ERROR]', error.message);
+        const msg = error.message || 'Failed to tailor ATS CV.';
+        const aiDown =
+            /unavailable|quota-limited|rate limit|503|model_not_found|All AI engines/i.test(msg);
+        const status = aiDown ? 503 : msg.includes('HTTP 429') ? 429 : 500;
+        res.status(status).json({
+            error: msg,
+            code: aiDown ? 'AI_UNAVAILABLE' : status === 429 ? 'JOB_URL_RATE_LIMIT' : 'TAILOR_FAILED'
+        });
     }
 });
 
@@ -490,6 +1621,9 @@ router.post('/api/cv/update', async (req, res) => {
                 year: e.period,
                 description: Array.isArray(e.bullets) ? e.bullets.join('. ') : (e.bullets || '')
             }));
+        }
+        if (merged.projects) {
+            kb.identity.relationalProjects = merged.projects;
         }
 
         await knowledgeService.saveKB();

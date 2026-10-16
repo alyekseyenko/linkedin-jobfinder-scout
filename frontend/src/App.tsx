@@ -1,7 +1,7 @@
 import './index.css'
 import { useState, useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom'
-import { Sparkles, LayoutDashboard, BrainCircuit, User, Activity, ShieldCheck, ShieldAlert } from 'lucide-react'
+import { Sparkles, LayoutDashboard, BrainCircuit, User, Activity, ShieldCheck, ShieldAlert, FileText } from 'lucide-react'
 import { mcpService } from './lib/mcp-service'
 import { AnimatePresence } from 'framer-motion'
 import { LinkedInAuthModal } from './components/LinkedInAuthModal'
@@ -10,6 +10,7 @@ import { LinkedInAuthModal } from './components/LinkedInAuthModal'
 const Dashboard = lazy(() => import('./components/Dashboard'))
 const Pipeline = lazy(() => import('./components/Pipeline'))
 const MyCV = lazy(() => import('./components/MyCV'))
+const AtsCvPage = lazy(() => import('./components/AtsCvPage'))
 const SystemDiagnostics = lazy(() => import('./components/SystemDiagnostics'))
 
 function PageLoader() {
@@ -92,6 +93,18 @@ function AppContent() {
             >
               <User size={13} />
               1. Profile CV
+            </Link>
+            <Link 
+              to="/ats" 
+              className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest transition-all duration-300 ${
+                location.pathname === '/ats' 
+                  ? 'bg-green-500 text-black shadow-[0_0_20px_rgba(34,197,94,0.4)] scale-100' 
+                  : 'text-white/50 hover:text-white hover:bg-white/5'
+              }`}
+              title="Paste a job description and generate a one-page ATS CV"
+            >
+              <FileText size={13} />
+              ATS CV
             </Link>
             <Link 
               to="/" 
@@ -187,6 +200,7 @@ function AppContent() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/pipeline" element={<Pipeline />} />
             <Route path="/cv" element={<MyCV />} />
+            <Route path="/ats" element={<AtsCvPage />} />
           </Routes>
         </Suspense>
       </main>

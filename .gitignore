@@ -12,6 +12,9 @@ ENV/
 
 # Sensitive PII & Credentials
 backend/user_cv.json
+backend/user_cv.json.real_backup
+backend/user_cv.json.*_backup*
+**/*real_backup*
 backend/cookies.json
 backend/knowledge_base.json
 backend/profile-claim.json

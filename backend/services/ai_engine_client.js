@@ -46,7 +46,28 @@ class AiEngineClient {
         }
     }
 
-    async analyzeJob(jobData, candidateProfile, candidateSkills = [], groqKey = null, geminiKey = null, correlationId = null) {
+    async atsBriefing(jobData, candidateProfile, candidateSkills = [], candidateDigest = null, correlationId = null) {
+        const url = `${this.getBaseUrl()}/crew/ats-briefing`;
+        const headers = correlationId ? { 'X-Correlation-ID': correlationId } : {};
+        const briefingTimeout = parseInt(process.env.AI_ENGINE_ATS_BRIEFING_TIMEOUT_MS, 10) || 120000;
+        try {
+            const payload = {
+                job_data: jobData,
+                candidate_profile: candidateProfile,
+                candidate_skills: candidateSkills,
+                candidate_digest: candidateDigest || null,
+                groq_key: process.env.GROQ_API_KEY,
+                gemini_key: process.env.GEMINI_API_KEY
+            };
+            const res = await axios.post(url, payload, { headers, timeout: briefingTimeout });
+            return { success: true, data: res.data, correlationId: res.headers['x-correlation-id'] || correlationId };
+        } catch (err) {
+            logger.warn('ai_engine', `ATS briefing failed: ${err.message}`);
+            return { success: false, error: err.message };
+        }
+    }
+
+    async analyzeJob(jobData, candidateProfile, candidateSkills = [], groqKey = null, geminiKey = null, correlationId = null, candidateDigest = null) {
         const url = `${this.getBaseUrl()}/crew/analyze`;
         const headers = correlationId ? { 'X-Correlation-ID': correlationId } : {};
         try {
@@ -55,6 +76,7 @@ class AiEngineClient {
                 job_data: jobData,
                 candidate_profile: candidateProfile,
                 candidate_skills: candidateSkills,
+                candidate_digest: candidateDigest || null,
                 groq_key: groqKey || process.env.GROQ_API_KEY,
                 gemini_key: geminiKey || process.env.GEMINI_API_KEY
             };

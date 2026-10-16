@@ -6,6 +6,7 @@ const express = require('express');
 const router = express.Router();
 const aiEngineClient = require('../services/ai_engine_client');
 const vectorEngine = require('../vector_engine');
+const { buildCandidateDigest } = require('../services/cv_digest_service');
 
 // 0. Real-time Streaming SSE for AI Analysis (Staff Wow Factor)
 router.get('/api/ai/analyze/stream', async (req, res) => {
@@ -18,9 +19,16 @@ router.get('/api/ai/analyze/stream', async (req, res) => {
         res.write(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`);
     };
 
-    sendEvent('status', { step: 'init', progress: 10, message: 'Initiating 6-agent LangGraph Swarm...' });
+    sendEvent('status', {
+        step: 'info',
+        progress: 100,
+        message: 'Agent steps are recorded when you run Deep Scan on a job. They appear as Agent trace in Intelligence.'
+    });
+    sendEvent('complete', { result: { agent_trace: [] } });
+    res.end();
+    return;
 
-    // Check Sandbox / Demo mode
+    // Legacy demo branch (unreachable; kept for reference)
     if (process.env.DEMO_MODE === 'true') {
         const demoPath = require('path').join(__dirname, '..', 'demo', 'sample_analyses.json');
         let demoData = { score: 92, summary: 'Sandbox Demo Analysis' };
@@ -74,6 +82,12 @@ router.post('/api/crew/analyze', async (req, res) => {
             }
         } catch (e) {}
 
+        const candidateDigest = buildCandidateDigest({
+            jobDescription: job.description || '',
+            jobTitle: job.title || ''
+        });
+        const profileWithDigest = `${userProfile}\n\nCANDIDATE_FACT_DIGEST (only cite facts from here):\n${JSON.stringify(candidateDigest)}`;
+
         const result = await aiEngineClient.analyzeJob(
             {
                 title: job.title || 'Unknown Role',
@@ -82,11 +96,12 @@ router.post('/api/crew/analyze', async (req, res) => {
                 location: job.location || '',
                 url: job.url || ''
             },
-            userProfile,
-            skills,
+            profileWithDigest,
+            [...skills, ...(candidateDigest.hard_skills || [])],
             null,
             null,
-            req.correlationId
+            req.correlationId,
+            candidateDigest
         );
 
         if (!result.success) {

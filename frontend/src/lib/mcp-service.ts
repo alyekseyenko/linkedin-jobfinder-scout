@@ -253,6 +253,55 @@ export const mcpService = {
   /**
    * Update the candidate CV profile directly
    */
+  async ingestProject(payload: {
+    title: string;
+    context?: string;
+    role?: string;
+    stack?: string;
+    result?: string;
+    link?: string;
+    period?: string;
+    company?: string;
+    attach_to_experience?: boolean;
+  }) {
+    const response = await fetch(`${API_BASE}/cv/ingest-project`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.issues?.[0]?.message || err.error || `Failed to ingest project (${response.status})`);
+    }
+    return await response.json();
+  },
+
+  async ingestExperience(payload: { company: string; role: string; period?: string; bullet: string }) {
+    const response = await fetch(`${API_BASE}/cv/ingest-experience`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.issues?.[0]?.message || err.error || `Failed to ingest experience (${response.status})`);
+    }
+    return await response.json();
+  },
+
+  async ingestText(text: string, kind: 'project_notes' | 'preferences' | 'screening' = 'project_notes') {
+    const response = await fetch(`${API_BASE}/cv/ingest-text`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, kind })
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.issues?.[0]?.message || err.error || `Failed to ingest text (${response.status})`);
+    }
+    return await response.json();
+  },
+
   async updateCV(profileData: any) {
     const response = await fetch(`${API_BASE}/cv/update`, {
       method: 'POST',
@@ -404,6 +453,68 @@ export const mcpService = {
     if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.detail || errData.error || 'Failed to adapt CV');
+    }
+    return await response.json();
+  },
+
+  /**
+   * Build a one-page ATS CV from a pasted job description (uses CV + identity + memory).
+   */
+  async tailorCvFromDescription(payload: {
+    jobDescription?: string;
+    jobUrl?: string;
+    jobTitle?: string;
+    company?: string;
+  }): Promise<{
+    success: boolean;
+    tailored_cv: any;
+    fit_assessment?: {
+      admission_chance_percent: number;
+      match_score: number;
+      level: string;
+      label_pt: string;
+      label_en: string;
+      matched_skills: string[];
+      skills_gaps: string[];
+      chance_rationale?: string;
+      disclaimer_pt?: string;
+      disclaimer_en?: string;
+      keyword_overlap_only?: boolean;
+      overlap_label_en?: string;
+      breakdown?: { titleScore: number; skillsScore: number; domainScore: number };
+    };
+    target: { jobTitle: string; company: string; jobUrl?: string };
+    job_resolution?: { source: string; location?: string; fetched_from_url?: boolean };
+    job_context?: { title: string; company: string; description: string; jobUrl?: string | null };
+    agent_trace?: Array<{ agent: string; tool: string; one_line: string }>;
+    context_insights?: {
+      vector_memory_count: number;
+      memory_hits: Array<{ source: string; similarity_percent: number; snippet: string }>;
+      ranked_projects: Array<{
+        title: string;
+        company?: string;
+        portfolio_priority?: string;
+        relevance_score: number;
+        tech: string[];
+      }>;
+      experience_focus: Array<{ company: string; role: string; period: string }>;
+      metric_highlights: string[];
+      data_sources: string[];
+    };
+  }> {
+    const response = await fetch(`${API_BASE}/cv/tailor`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      const issueMsg = Array.isArray(errData.issues)
+        ? errData.issues.map((i: { field?: string; message?: string }) =>
+            i.message ? `${i.field || 'field'}: ${i.message}` : ''
+          ).filter(Boolean).join(' ')
+        : '';
+      throw new Error(issueMsg || errData.error || errData.detail || 'Failed to tailor ATS CV');
     }
     return await response.json();
   },

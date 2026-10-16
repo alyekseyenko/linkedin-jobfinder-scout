@@ -7,6 +7,7 @@ from graph_nodes import (
     node_strategist,
     node_crafter,
     node_reviewer,
+    node_tailor,
     evaluate_graph_flow
 )
 
@@ -21,6 +22,7 @@ def build_neural_graph() -> StateGraph:
     workflow.add_node("StrategistNode", node_strategist)
     workflow.add_node("CrafterNode", node_crafter)
     workflow.add_node("ReviewerNode", node_reviewer)
+    workflow.add_node("TailorNode", node_tailor)
     
     # 2. Parallel Fan-Out: Run Scout (job intelligence) & Forensics (web intel) concurrently!
     workflow.add_edge(START, "ScoutNode")
@@ -40,10 +42,11 @@ def build_neural_graph() -> StateGraph:
         "ReviewerNode",
         evaluate_graph_flow,
         {
-            "end": END,
+            "tailor": "TailorNode",
             "revise": "CrafterNode"
         }
     )
+    workflow.add_edge("TailorNode", END)
     
     return workflow.compile()
 
@@ -52,7 +55,14 @@ app_graph = build_neural_graph()
 
 from memory_service import neural_memory
 
-def run_neural_graph(job_data: dict, candidate_profile: str, candidate_skills: list[str], groq_key: str = None, gemini_key: str = None) -> dict:
+def run_neural_graph(
+    job_data: dict,
+    candidate_profile: str,
+    candidate_skills: list[str],
+    groq_key: str = None,
+    gemini_key: str = None,
+    candidate_digest: dict = None,
+) -> dict:
     """
     Entry point to trigger the cyclical LangGraph workflow.
     Executes Scout and Forensics concurrently for minimum latency.
@@ -68,6 +78,8 @@ def run_neural_graph(job_data: dict, candidate_profile: str, candidate_skills: l
         "job_data": job_data,
         "candidate_profile": candidate_profile,
         "candidate_skills": candidate_skills,
+        "candidate_digest": candidate_digest or {},
+        "agent_trace": [],
         "groq_key": groq_key,
         "gemini_key": gemini_key,
         "scout_report": "",
@@ -81,7 +93,8 @@ def run_neural_graph(job_data: dict, candidate_profile: str, candidate_skills: l
         "inmail_pitch": "",
         "reviewer_feedback": "",
         "pitch_approved": False,
-        "revision_count": 0
+        "revision_count": 0,
+        "tailored_cv": {}
     }
     
     # Execute the graph
@@ -101,6 +114,8 @@ def run_neural_graph(job_data: dict, candidate_profile: str, candidate_skills: l
         "linkedin_connect_note": final_state.get("linkedin_connect_note", ""),
         "inmail_pitch": final_state.get("inmail_pitch", ""),
         "detected_language": final_state.get("detected_language", "en"),
-        "final_summary": f"Graph Execution Finished. Approved: {final_state.get('pitch_approved')}. Revisions: {final_state.get('revision_count') - 1}"
+        "final_summary": f"Graph Execution Finished. Approved: {final_state.get('pitch_approved')}. Revisions: {final_state.get('revision_count') - 1}",
+        "agent_trace": final_state.get("agent_trace") or [],
+        "tailored_cv": final_state.get("tailored_cv") or {}
     }
 

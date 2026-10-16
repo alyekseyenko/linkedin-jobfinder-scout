@@ -13,6 +13,15 @@
 > [!NOTE]
 > **Educational & Research Notice:** This project is an open-source research and engineering showcase for multi-agent systems, human-in-the-loop browser automation, and vector memory. Always comply with the target platforms' terms of service and acceptable use guidelines.
 
+> **Why this repository exists (portfolio intent)**  
+> I built **LinkedIn Jobfinder Scout** as a **personal R&D showcase** and living CV brain: dual-memory (candidate vs. market), a 6-agent LangGraph swarm, ATS PDF export, and Playwright HITL auto-fill—so recruiters and engineers can see how I design agentic systems end-to-end. It complements my founder work on **[Alygen CRM](https://github.com/alyekseyenko/alygen)** (B2B outreach) and my alpha experiment **[Praxis](https://github.com/alyekseyenko/praxis-alygen)** (evaluation-first coding agents in Docker). **Not affiliated with LinkedIn**; use responsibly and in line with platform ToS.
+
+<details>
+<summary>🇵🇹 <b>Porque este projeto está no GitHub</b></summary>
+
+Vitrine técnica aberta: automatização inteligente de candidaturas com **memória vetorial**, **juiz LLM**, pipeline Kanban e perfil digital (`user_cv.json`) — o mesmo ecossistema que uso para manter o meu CV/ATS alinhado com dados reais. É **investigação e portfólio**, não um produto comercial da LinkedIn.
+</details>
+
 > **"Manual job hunting is obsolete. Welcome to Agentic Career Intelligence."**
 
 **LinkedIn Jobfinder Scout** is an open-source, high-performance recruitment intelligence and autonomous job application platform designed to automate, analyze, and optimize your career trajectory. 
@@ -133,6 +142,31 @@ The startup script automatically:
 3. Launches all microservices (`postgres`, `ai-engine`, `neural-backend`, `neural-ui`, `qdrant`).
 4. Registers the native protocol handler for 1-Click browser authentication.
 5. Automatically opens the Dashboard in your browser at **`http://localhost:5173`**.
+
+---
+
+## 🔒 Publicar no GitHub com segurança
+
+O repositório **nunca** deve incluir dados pessoais reais nem credenciais. Mantém isto **só na máquina local** (já estão no `.gitignore`):
+
+| Ficheiro / pasta | Conteúdo sensível |
+|---|---|
+| `.env` | API keys, cookies LinkedIn |
+| `backend/user_cv.json` | CV real (email, telefone, histórico) |
+| `backend/user_cv.json.*` / `*real_backup*` | Cópias de segurança do CV |
+| `backend/knowledge_base.json` | Memória agregada do candidato |
+| `backend/cookies.json`, `backend/vault/` | Sessões e segredos encriptados |
+
+**O que vai para o GitHub:** código, `user_cv.example.json` (dados fictícios), `.env.example` (placeholders), `docker-compose.yml`, documentação.
+
+Antes de `git push`, corre:
+
+```bash
+node scripts/check-safe-publish.js
+git status   # confirma que user_cv.json e .env não aparecem
+```
+
+Se algum segredo foi commitado no passado, remove-o do histórico (ex. `git filter-repo`) e **roda as API keys** nos consoles dos providers.
 
 ---
 

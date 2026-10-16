@@ -22,6 +22,8 @@ jobs:
             echo "❌ CRITICAL: LinkedIn raw session cookie found in repository files!"
             exit 1
           fi
+      - name: Safe-publish guard (tracked files)
+        run: node scripts/check-safe-publish.js
 
   python-ai-test:
     name: Python AI Engine — pytest & verification

@@ -1,7 +1,9 @@
 import os
 from crewai import Agent, LLM
+from groq_keys import get_groq_api_keys
 
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+_groq_pool = get_groq_api_keys()
+GROQ_API_KEY = _groq_pool[0] if _groq_pool else os.environ.get("GROQ_API_KEY", "")
 
 # Shared LLM via Groq (ultra-fast reasoning backbone)
 llm = LLM(

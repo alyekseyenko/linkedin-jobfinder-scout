@@ -40,5 +40,36 @@
   "certifications": [
     "AWS Certified Solutions Architect",
     "Deep Learning Specialization"
-  ]
+  ],
+  "projects": [
+    {
+      "id": "node_neural_scout",
+      "title": "Neural Scout – job automation",
+      "context": "Local agent that matches a candidate CV to job descriptions and drafts applications.",
+      "role": "Solo builder — architecture, RAG memory, and UI",
+      "period": "2024 – Present",
+      "link": "https://github.com/example/neural-scout",
+      "edges_skills": ["React", "PostgreSQL", "pgvector", "LangGraph"],
+      "edges_outcomes": ["Cut application drafting time by 40%"],
+      "strategic_weight": "Core Node"
+    },
+    {
+      "id": "phc_cloud_data_platform_elt",
+      "title": "Twin-DB ELT replica (demo shape)",
+      "context": "Example portfolio project entry for ATS tailoring — replace with your own facts.",
+      "role": "Data platform engineer",
+      "period": "2025 – 2026",
+      "repository": "https://github.com/example/erp-elt-replica",
+      "bullets": [
+        "Mirrored operational ERP tables into an analytics warehouse with idempotent nightly loads.",
+        "Exposed client and order metrics to n8n dashboards for ops monitoring.",
+        "Documented schema drift checks and rollback paths for pilot tenants."
+      ],
+      "edges_skills": ["SQL Server", "PostgreSQL", "Python", "n8n", "Docker"],
+      "edges_outcomes": ["Pilot dashboards for two business units without touching production writes"],
+      "portfolio_priority": "flagship"
+    }
+  ],
+  "preferences": "Remote-first. Target: Senior / Staff automation or full-stack AI roles in EU timezone.",
+  "screening": "Notice period: 30 days. English C1. Authorized to work in Portugal / EU."
 }

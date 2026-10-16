@@ -22,16 +22,50 @@ from duckduckgo_search import DDGS
 from graph_state import JobGraphState
 from graph_engine import neural_graph
 from semantic_graph_service import semantic_engine
+from groq_keys import get_groq_api_keys
 import asyncio
 
 # 1. API Keys & Configuration
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+_groq_keys_boot = get_groq_api_keys()
+GROQ_API_KEY = _groq_keys_boot[0] if _groq_keys_boot else ""
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 DEFAULT_GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
 DEFAULT_GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
 
 # 2. Client Initializations
 groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
+
+
+def call_groq_with_key_pool(
+    system_prompt: str,
+    user_prompt: str,
+    model: str,
+    json_mode: bool,
+    groq_key: str | None = None,
+) -> str:
+    keys = get_groq_api_keys(groq_key)
+    last_err = None
+    for idx, key in enumerate(keys):
+        try:
+            client = Groq(api_key=key)
+            response = client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                model=model,
+                response_format={"type": "json_object"} if json_mode else None,
+            )
+            return response.choices[0].message.content
+        except Exception as err:
+            last_err = err
+            print(
+                f"[GROQ] Key {idx + 1}/{len(keys)} failed ({str(err)[:100]}). "
+                + ("Trying next key..." if idx + 1 < len(keys) else "No more Groq keys.")
+            )
+    if last_err:
+        raise last_err
+    raise RuntimeError("No Groq API keys configured")
 
 
 def call_ollama(system_prompt: str, user_prompt: str, model: str = None, json_mode: bool = False) -> str:
@@ -106,8 +140,6 @@ def call_model(system_prompt: str, user_prompt: str, model: str = None, json_mod
     - Fallback: Google (Gemini Flash Latest)
     - Local Fallback / Alternative: Ollama (Offline)
     """
-    # Use provided keys or fall back to environment/hardcoded
-    active_groq_key = groq_key or GROQ_API_KEY
     active_gemini_key = gemini_key or GEMINI_API_KEY
     active_model = model or DEFAULT_GROQ_MODEL
     
@@ -122,21 +154,14 @@ def call_model(system_prompt: str, user_prompt: str, model: str = None, json_mod
         except Exception as ollama_err:
             print(f"[NEURAL OLLAMA] Primary Ollama failed: {ollama_err}. Falling back to API keys...")
 
-    # TENTATIVA 1: Groq
-    if active_groq_key:
+    # TENTATIVA 1: Groq (rotate keys before next provider)
+    if get_groq_api_keys(groq_key):
         try:
-            current_groq = Groq(api_key=active_groq_key)
-            response = current_groq.chat.completions.create(
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                model=active_model,
-                response_format={"type": "json_object"} if json_mode else None
+            return call_groq_with_key_pool(
+                system_prompt, user_prompt, active_model, json_mode, groq_key
             )
-            return response.choices[0].message.content
         except Exception as groq_err:
-            print(f"[NEURAL FALLBACK] Groq error ({str(groq_err)[:100]}). Falling back to Google Gemini...")
+            print(f"[NEURAL FALLBACK] Groq pool exhausted ({str(groq_err)[:100]}). Falling back to Google Gemini...")
 
     # TENTATIVA 2: Gemini
     if active_gemini_key:
@@ -180,6 +205,24 @@ def call_model(system_prompt: str, user_prompt: str, model: str = None, json_mod
 
 
 from memory_service import neural_memory
+
+
+def digest_block(state: JobGraphState) -> str:
+    digest = state.get("candidate_digest") or {}
+    if not digest:
+        return "No structured digest provided. Use CANDIDATE_FACT_DIGEST in profile text only."
+    return json.dumps(digest, indent=2)[:12000]
+
+
+def trace_entry(agent: str, tool: str, one_line: str) -> dict:
+    return {
+        "agent_trace": [{
+            "agent": agent,
+            "tool": tool,
+            "one_line": (one_line or "")[:280]
+        }]
+    }
+
 
 def detect_job_language(text: str) -> str:
     text_lower = text.lower()
@@ -258,11 +301,14 @@ def node_scout(state: JobGraphState) -> JobGraphState:
     Be concise, structured, and honest. Max 400 words.
     """
     report = call_model(system, user, groq_key=state.get("groq_key"), gemini_key=state.get("gemini_key"))
-    return {
+    summary_line = report.replace("\n", " ").strip()[:200] if report else "Job requirements analyzed."
+    out = {
         "scout_report": report,
         "detected_language": lang,
         "candidate_name": candidate_name
     }
+    out.update(trace_entry("Scout", "LLM + candidate memory", summary_line))
+    return out
 
 def node_forensics(state: JobGraphState) -> JobGraphState:
     """Gathers real-time global intelligence via web search and official LinkedIn data."""
@@ -345,7 +391,9 @@ def node_forensics(state: JobGraphState) -> JobGraphState:
     Be objective. If web search data is missing, provide deep reasoning based on the 'Official Identity' and 'Job Context'.
     """
     report = call_model(system, user, groq_key=state.get("groq_key"), gemini_key=state.get("gemini_key"))
-    return {"forensics_report": report}
+    out = {"forensics_report": report}
+    out.update(trace_entry("Forensics", "DuckDuckGo + company API", f"360 report for {company}."))
+    return out
 
 def node_spy(state: JobGraphState) -> JobGraphState:
     """THE SOCIAL STALKER: Gathers company intelligence and analyzes the human factor."""
@@ -382,7 +430,9 @@ def node_spy(state: JobGraphState) -> JobGraphState:
     Be bold, specific, and psychological. Max 400 words.
     """
     report = call_model(system, user, groq_key=state.get("groq_key"), gemini_key=state.get("gemini_key"))
-    return {"spy_report": report}
+    out = {"spy_report": report}
+    out.update(trace_entry("Spy", "LLM synthesis", "Company culture and outreach angles mapped."))
+    return out
 
 def node_strategist(state: JobGraphState) -> JobGraphState:
     """Aligns the candidate profile with the scout report using Deep RAG Evidence."""
@@ -427,6 +477,9 @@ def node_strategist(state: JobGraphState) -> JobGraphState:
     - Provenance Trail: {graph_align['provenance']}
     
     CANDIDATE PROFILE: {profile}
+
+    CANDIDATE_FACT_DIGEST (ONLY source for employers, projects, metrics; never invent):
+    {digest_block(state)}
     
     DEEP RAG EVIDENCE (From Knowledge Graph):
     {evidence}
@@ -444,7 +497,13 @@ def node_strategist(state: JobGraphState) -> JobGraphState:
     Concrete, specific, and metric-driven. Max 450 words.
     """
     report = call_model(system, user, groq_key=state.get("groq_key"), gemini_key=state.get("gemini_key"))
-    return {"strategy_report": report}
+    out = {"strategy_report": report}
+    out.update(trace_entry(
+        "Strategist",
+        "Semantic graph + RAG",
+        f"Match {graph_align['match_score']}% on verified skills."
+    ))
+    return out
 
 def node_crafter(state: JobGraphState) -> JobGraphState:
     """Writes or revises the pitch in 3 distinct formats (LinkedIn connect note, InMail, full pitch)."""
@@ -483,6 +542,9 @@ def node_crafter(state: JobGraphState) -> JobGraphState:
     
     STRATEGIC INTELLIGENCE:
     {strategy_report}
+
+    CANDIDATE_FACT_DIGEST (cite only these facts for metrics and projects):
+    {digest_block(state)}
     
     {revision_instruction}
     
@@ -520,12 +582,14 @@ def node_crafter(state: JobGraphState) -> JobGraphState:
         connect_note = connect_note[:295] + "..."
 
     current_count = state.get("revision_count", 0)
-    return {
+    out = {
         "draft_pitch": full_pitch,
         "linkedin_connect_note": connect_note,
         "inmail_pitch": inmail,
         "revision_count": current_count + 1
     }
+    out.update(trace_entry("Crafter", "LLM JSON", f"Outreach draft revision {current_count + 1}."))
+    return out
 
 def node_reviewer(state: JobGraphState) -> JobGraphState:
     """THE MIRROR AGENT: Simulates a skeptical recruiter and enforces human-like elite quality."""
@@ -595,16 +659,75 @@ def node_reviewer(state: JobGraphState) -> JobGraphState:
     else:
         print(f"[MIRROR AGENT] APPROVED. 3-channel pitch is elite.")
         
-    return {
+    line = "Pitch package approved." if is_approved else f"Revision requested: {feedback[:120]}"
+    out = {
         "pitch_approved": is_approved,
         "reviewer_feedback": feedback
     }
+    out.update(trace_entry("Reviewer", "LLM-as-judge", line))
+    return out
+
+
+def node_tailor(state: JobGraphState) -> JobGraphState:
+    """Build one-page ATS resume JSON from job + factual digest."""
+    job = state["job_data"]
+    title = job.get("title", "Target Role")
+    company = job.get("company", "Target Company")
+    description = job.get("description", "")[:12000]
+    digest = digest_block(state)
+
+    system = (
+        "You are an ATS resume writer. Output ONLY valid JSON. "
+        "All string values must be professional English. "
+        "Never invent employers, dates, or metrics not in CANDIDATE_FACT_DIGEST. "
+        "Copy company, role title, and period exactly from digest experience entries. "
+        "Do not merge roles or rename titles to match the job (use target_headline for alignment)."
+    )
+    user = f"""
+    TARGET JOB:
+    Title: {title}
+    Company: {company}
+    Description:
+    {description}
+
+    CANDIDATE_FACT_DIGEST:
+    {digest}
+
+    Return JSON:
+    {{
+      "personal_info": {{ "name": "...", "title": "...", "email": "...", "phone": "...", "location": "...", "website": "..." }},
+      "target_headline": "one line for this application",
+      "summary": "50-70 words",
+      "core_competencies": {{
+        "leadership_and_delivery": ["..."],
+        "technical": ["..."],
+        "platforms_and_tools": ["..."]
+      }},
+      "experience": [{{ "company": "...", "role": "...", "period": "...", "bullets": ["..."] }}],
+      "selected_projects": [{{ "name": "...", "impact": "one sentence" }}],
+      "hard_skills": ["..."],
+      "education": ["..."],
+      "certifications": ["..."]
+    }}
+    Max 3 roles, 4 bullets each, 4 projects max.
+    """
+    raw = call_model(system, user, json_mode=True, groq_key=state.get("groq_key"), gemini_key=state.get("gemini_key"))
+    tailored = {}
+    try:
+        tailored = json.loads(raw)
+    except Exception as e:
+        print(f"[TAILOR] JSON parse failed: {e}")
+        tailored = {}
+
+    out = {"tailored_cv": tailored}
+    out.update(trace_entry("Tailor", "LLM JSON", "One-page ATS resume generated from verified digest."))
+    return out
 
 
 def evaluate_graph_flow(state: JobGraphState) -> str:
     """Conditional edge router after reviewing."""
     if state.get("pitch_approved", False):
-        return "end"
+        return "tailor"
     if state.get("revision_count", 0) >= 3:
-        return "end"
+        return "tailor"
     return "revise"

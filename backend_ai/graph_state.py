@@ -1,6 +1,8 @@
-from typing import TypedDict, List
+from typing import TypedDict, List, Annotated, Any, Optional
+import operator
 
-class JobGraphState(TypedDict):
+
+class JobGraphState(TypedDict, total=False):
     """
     The state dictionary that carries data across the LangGraph nodes.
     """
@@ -8,9 +10,13 @@ class JobGraphState(TypedDict):
     job_data: dict
     candidate_profile: str
     candidate_skills: List[str]
+    candidate_digest: dict
     groq_key: str
     gemini_key: str
-    
+
+    # Agent execution trace (merged across nodes)
+    agent_trace: Annotated[List[dict], operator.add]
+
     # intermediate AI generations
     scout_report: str
     forensics_report: str
@@ -18,7 +24,7 @@ class JobGraphState(TypedDict):
     strategy_report: str
     detected_language: str
     candidate_name: str
-    
+
     # Pitch writing state
     draft_pitch: str
     linkedin_connect_note: str
@@ -27,3 +33,5 @@ class JobGraphState(TypedDict):
     pitch_approved: bool
     revision_count: int
 
+    # One-page ATS resume (Tailor node)
+    tailored_cv: dict

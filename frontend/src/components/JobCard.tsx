@@ -57,7 +57,9 @@ type Tab = 'mission' | 'intelligence' | 'operation' | 'cv';
 export default function JobCard({ job, userSkills = [], onClose, onDelete, onAccept, onReject, onUpdateBudget }: JobCardProps) {
   const [activeTab, setActiveTab] = useState<Tab>('mission');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [tailoredCV, setTailoredCV] = useState<any>(null);
+  const [tailoredCV, setTailoredCV] = useState<any>(
+    pack.tailored_cv && Object.keys(pack.tailored_cv).length ? pack.tailored_cv : null
+  );
   const [isAdaptingCV, setIsAdaptingCV] = useState(false);
   const [isAutoFillOpen, setIsAutoFillOpen] = useState(false);
   
@@ -111,6 +113,9 @@ export default function JobCard({ job, userSkills = [], onClose, onDelete, onAcc
   const [detectedLang, setDetectedLang] = useState(
     pack.detected_language || job.detected_language || 'en'
   );
+  const [agentTrace, setAgentTrace] = useState<Array<{ agent: string; tool: string; one_line: string }>>(
+    Array.isArray(pack.agent_trace) ? pack.agent_trace : []
+  );
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const handleCopy = (text: string, key: string) => {
@@ -136,6 +141,16 @@ export default function JobCard({ job, userSkills = [], onClose, onDelete, onAcc
     return text.replace(/[—–-]/g, ', ').replace(/\s+/g, ' ').trim();
   };
 
+  const formatAtsPeriod = (period: string) => {
+    if (!period) return '';
+    return period
+      .replace(/\u2014|\u2013/g, ' - ')
+      .replace(/\s+to\s+/gi, ' - ')
+      .replace(/\s*-\s*/g, ' - ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
   const [coverLetter, setCoverLetter] = useState('');
 
   // Re-hydrate all intelligence state when the job prop changes (e.g. pipeline selects a different card)
@@ -158,6 +173,10 @@ export default function JobCard({ job, userSkills = [], onClose, onDelete, onAcc
     setLinkedinNote(newPack.linkedin_connect_note || job.linkedin_connect_note || '');
     setInmailPitch(newPack.inmail_pitch || job.inmail_pitch || '');
     setDetectedLang(newPack.detected_language || job.detected_language || 'en');
+    setAgentTrace(Array.isArray(newPack.agent_trace) ? newPack.agent_trace : []);
+    if (newPack.tailored_cv && Object.keys(newPack.tailored_cv).length) {
+      setTailoredCV(newPack.tailored_cv);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job.id, job.linkedin_id]);
 
@@ -206,7 +225,7 @@ export default function JobCard({ job, userSkills = [], onClose, onDelete, onAcc
     if (baseGaps.length === 0) {
         const jobText = (job.title + ' ' + (job.description || '')).toLowerCase();
         // High value skills to check for gaps
-        const coreKeywords = ["AWS", "Azure", "Docker", "Kubernetes", "GraphQL", "Rust", "Go", "Java", "C++", "Cybersecurity", "Terraform", "CI/CD", "Testing"];
+        const coreKeywords = ["GCP", "Vertex AI", "Hetzner", "Docker", "Kubernetes", "GraphQL", "Rust", "Go", "Java", "C++", "Cybersecurity", "Terraform", "CI/CD", "Testing", "Azure", "AWS"];
         
         baseGaps = coreKeywords.filter(s => {
             const normalized = s.toLowerCase();
@@ -277,6 +296,10 @@ export default function JobCard({ job, userSkills = [], onClose, onDelete, onAcc
               setInmailPitch(result.inmail_pitch || '');
               setDetectedLang(result.detected_language || 'en');
               setIsFromCache(result.fromCache || false);
+              if (Array.isArray(result.agent_trace)) setAgentTrace(result.agent_trace);
+              if (result.tailored_cv && Object.keys(result.tailored_cv).length) {
+                setTailoredCV(result.tailored_cv);
+              }
 
               if (result.matched_skills && Array.isArray(result.matched_skills)) {
                   setMatches(result.matched_skills);
@@ -310,6 +333,10 @@ export default function JobCard({ job, userSkills = [], onClose, onDelete, onAcc
         setInmailPitch(result.inmail_pitch || '');
         setDetectedLang(result.detected_language || 'en');
         setIsFromCache(result.fromCache || false);
+        if (Array.isArray(result.agent_trace)) setAgentTrace(result.agent_trace);
+        if (result.tailored_cv && Object.keys(result.tailored_cv).length) {
+          setTailoredCV(result.tailored_cv);
+        }
 
         if (result.matched_skills && Array.isArray(result.matched_skills)) {
             setMatches(result.matched_skills);
@@ -455,7 +482,7 @@ export default function JobCard({ job, userSkills = [], onClose, onDelete, onAcc
         doc.setFontSize(8.5);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(71, 85, 105);
-        doc.text(`${exp.company} | ${exp.period}`, pageWidth - margin, y, { align: 'right' });
+        doc.text(`${exp.company} | ${formatAtsPeriod(exp.period)}`, pageWidth - margin, y, { align: 'right' });
         y += 4.5;
 
         (exp.bullets || []).forEach((b: string) => {
@@ -853,11 +880,36 @@ export default function JobCard({ job, userSkills = [], onClose, onDelete, onAcc
                       <button onClick={handleDeepAnalysis} className="px-10 py-4 bg-bio-neon-blue text-bio-void rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] shadow-lg shadow-bio-neon-blue/20 hover:scale-105 transition-all active:scale-95">Initialize Deep Scan</button>
                     </div>
                   ) : isAnalyzing ? (
-                    <div className="py-12 flex flex-col items-center">
+                    <div className="py-12 flex flex-col items-center space-y-4">
                       <NeuralTeamVisualizer />
+                      <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest text-center max-w-sm">
+                        LangGraph running Scout, Forensics, Spy, Strategist, Crafter, Reviewer, and Tailor on your CV digest.
+                      </p>
                     </div>
                   ) : (
                     <div className="space-y-4 animate-in fade-in duration-700">
+                       {agentTrace.length > 0 && (
+                         <Accordion
+                           title="Agent trace (real steps)"
+                           icon={Fingerprint}
+                           color="text-bio-neon-cyan"
+                           borderColor="border-bio-neon-cyan/20"
+                           bgColor="bg-bio-neon-cyan/[0.03]"
+                           defaultOpen={true}
+                         >
+                           <ol className="space-y-3 text-xs text-white/80">
+                             {agentTrace.map((step, i) => (
+                               <li key={i} className="flex gap-3 border-l-2 border-bio-neon-cyan/30 pl-3">
+                                 <span className="font-black text-bio-neon-cyan shrink-0">{step.agent}</span>
+                                 <div>
+                                   <p className="text-[9px] uppercase tracking-wider text-white/40">{step.tool}</p>
+                                   <p className="leading-relaxed">{step.one_line}</p>
+                                 </div>
+                               </li>
+                             ))}
+                           </ol>
+                         </Accordion>
+                       )}
                        <Accordion 
                          title="Strategic Intelligence Brief" 
                          icon={BrainCircuit} 

@@ -2,6 +2,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios'); // Adicionado axios para comunicação com AI Engine
+const { getGroqApiKeys } = require('./services/groq_keys');
 require('dotenv').config();
 
 const KB_PATH = path.join(__dirname, 'knowledge_base.json');
@@ -12,7 +13,7 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 async function performDeepMapping() {
     console.log('🚀 [DEEP MAPPING] Iniciando Ingestão de Identidade Neural 2.0...');
     
-    const groqKey = process.env.GROQ_API_KEY;
+    const groqKeys = getGroqApiKeys();
     const geminiKey = process.env.GEMINI_API_KEY;
 
     let kb = {};
@@ -52,12 +53,13 @@ async function performDeepMapping() {
     let structuredData = null;
     let success = false;
 
-    // 1. TENTATIVA COM GROQ (Motor de Alta Velocidade)
-    if (groqKey) {
-        console.log('🏎️ [GROQ] Usando Llama 3 70B para extração instantânea...');
+    // 1. TENTATIVA COM GROQ (Motor de Alta Velocidade) — rotação de chaves
+    for (let i = 0; i < groqKeys.length && !success; i++) {
+        const groqKey = groqKeys[i];
+        console.log(`🏎️ [GROQ] Llama 3.3 70B (chave ${i + 1}/${groqKeys.length})...`);
         try {
             const groqResponse = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
-                model: "llama-3.3-70b-versatile",
+                model: process.env.GROQ_MODEL_PRIMARY || "openai/gpt-oss-120b",
                 messages: [
                     { role: "system", content: "Você é um JSON Expert. Responda APENAS com JSON puro." },
                     { role: "user", content: prompt }
@@ -72,8 +74,11 @@ async function performDeepMapping() {
             console.log('✅ [GROQ] Extração concluída em segundos.');
             success = true;
         } catch (e) {
-            console.warn('⚠️ Groq falhou ou limite atingido. Tentando Gemini...', e.message);
+            console.warn(`⚠️ Groq chave ${i + 1} falhou:`, e.message);
         }
+    }
+    if (groqKeys.length && !success) {
+        console.warn('⚠️ Todas as chaves Groq falharam. Tentando outros provedores...');
     }
 
     // 2. FALLBACK COM COHERE (Comunicação Direta via Axios)

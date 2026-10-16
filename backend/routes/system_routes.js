@@ -123,7 +123,7 @@ router.get('/api/system/sanity', async (req, res) => {
     diagnostics.components.aiService = {
         status: 'online',
         providers: {
-            groq: !!process.env.GROQ_API_KEY,
+            groq: !!(process.env.GROQ_API_KEY || process.env.GROQ_API_KEYS),
             gemini: !!process.env.GEMINI_API_KEY,
             cohere: !!process.env.COHERE_API_KEY
         }

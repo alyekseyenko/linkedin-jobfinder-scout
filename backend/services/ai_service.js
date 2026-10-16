@@ -1,6 +1,7 @@
 const { Groq } = require('groq-sdk');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { CohereClient } = require('cohere-ai');
+const { getGroqApiKeys, hasGroqApiKeys } = require('./groq_keys');
 
 let groq = null;
 let gemini = null;
@@ -10,12 +11,49 @@ let groqApiKey = process.env.GROQ_API_KEY || '';
 let geminiApiKey = process.env.GEMINI_API_KEY || '';
 let cohereApiKey = process.env.COHERE_API_KEY || '';
 
+function syncGroqClient() {
+    const keys = getGroqApiKeys();
+    groqApiKey = keys[0] || '';
+    groq = groqApiKey ? new Groq({ apiKey: groqApiKey }) : null;
+}
+
+async function withGroqKeyFallback(runWithClient) {
+    const keys = getGroqApiKeys();
+    if (!keys.length) {
+        throw new Error('No Groq API keys configured');
+    }
+    let lastError;
+    for (let i = 0; i < keys.length; i++) {
+        const client = new Groq({ apiKey: keys[i] });
+        try {
+            return await runWithClient(client);
+        } catch (e) {
+            lastError = e;
+            console.warn(`[GROQ] Key ${i + 1}/${keys.length} failed:`, e.message);
+        }
+    }
+    throw lastError;
+}
+
 // Initialize default clients from env if available
-if (groqApiKey) groq = new Groq({ apiKey: groqApiKey });
+syncGroqClient();
 let genAI = null;
+const DEFAULT_GEMINI_MODEL = process.env.GEMINI_MODEL_PRIMARY || 'gemini-3.8-flash';
+
+const DEPRECATED_GROQ_MODELS = new Set([
+    'llama-3.1-70b-versatile',
+    'llama-3.1-8b-instant',
+    'llama-3.3-70b-versatile'
+]);
+
+function isGroqPromptTooLargeError(err) {
+    const msg = String(err?.message || err || '');
+    return /413|Request too large|tokens per minute/i.test(msg);
+}
+
 if (geminiApiKey) {
     genAI = new GoogleGenerativeAI(geminiApiKey);
-    gemini = genAI.getGenerativeModel({ model: "gemini-3.5-flash-lite" });
+    gemini = genAI.getGenerativeModel({ model: DEFAULT_GEMINI_MODEL });
 }
 if (cohereApiKey) cohere = new CohereClient({ token: cohereApiKey });
 
@@ -23,15 +61,15 @@ if (cohereApiKey) cohere = new CohereClient({ token: cohereApiKey });
  * Dynamically reinitialize clients with new keys (from user config / database)
  */
 function initAI(keys = {}) {
-    if (keys.groqApiKey && keys.groqApiKey !== groqApiKey) {
-        groqApiKey = keys.groqApiKey;
-        groq = new Groq({ apiKey: groqApiKey });
+    if (keys.groqApiKey) {
+        process.env.GROQ_API_KEY = keys.groqApiKey;
+        syncGroqClient();
         console.log('[AI SERVICE] Groq AI Engine initialized dynamically');
     }
     if (keys.geminiApiKey && keys.geminiApiKey !== geminiApiKey) {
         geminiApiKey = keys.geminiApiKey;
         genAI = new GoogleGenerativeAI(geminiApiKey);
-        gemini = genAI.getGenerativeModel({ model: "gemini-3.5-flash-lite" });
+        gemini = genAI.getGenerativeModel({ model: DEFAULT_GEMINI_MODEL });
         console.log('[AI SERVICE] Gemini AI Engine initialized dynamically');
     }
     if (keys.cohereApiKey && keys.cohereApiKey !== cohereApiKey) {
@@ -41,35 +79,120 @@ function initAI(keys = {}) {
     }
 }
 
-/**
- * Universal AI Completion with 4-Layer Fallback Strategy (2026 Protocol)
- */
-async function getCombinedAICompletion(prompt, systemPrompt, isJson = false) {
-    // LAYER 1: Groq Llama 3.3 70B
-    if (groq) {
-        try {
-            console.log('[AI SERVICE] L1: Attempting Groq Llama 3.3 70B...');
-            const completion = await groq.chat.completions.create({
-                messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }],
-                model: 'llama-3.3-70b-versatile',
-                response_format: isJson ? { type: 'json_object' } : undefined
-            });
-            return completion.choices[0].message.content;
-        } catch (e) {
-            console.warn('[AI SERVICE] L1 Fail (70B):', e.message);
+function getGroqModelCandidates() {
+    const defaults = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b'];
+    const fromEnv = [process.env.GROQ_MODEL_PRIMARY, process.env.GROQ_MODEL_FAST].filter(
+        (m) => m && !DEPRECATED_GROQ_MODELS.has(m)
+    );
+    const seen = new Set();
+    const out = [];
+    for (const m of [...defaults, ...fromEnv]) {
+        if (m && !seen.has(m) && !DEPRECATED_GROQ_MODELS.has(m)) {
+            seen.add(m);
+            out.push(m);
         }
+    }
+    return out;
+}
 
-        // LAYER 2: Groq Llama 3.1 8B Fallback
-        try {
-            console.log('[AI SERVICE] L2: Attempting Groq Llama 3.1 8B...');
-            const completion = await groq.chat.completions.create({
-                messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }],
-                model: 'llama-3.1-8b-instant',
+function getGeminiModelCandidates() {
+    const deprecatedGemini = new Set(['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash']);
+    const fromEnv = [process.env.GEMINI_MODEL_PRIMARY].filter((m) => m && !deprecatedGemini.has(m));
+    const defaults = [
+        'gemini-3.8-flash',
+        'gemini-3.5-flash-lite',
+        'gemini-flash-latest'
+    ];
+    const seen = new Set();
+    const out = [];
+    for (const m of [...fromEnv, ...defaults]) {
+        if (m && !seen.has(m)) {
+            seen.add(m);
+            out.push(m);
+        }
+    }
+    return out;
+}
+
+async function tryOllamaCompletion(prompt, systemPrompt, isJson = false) {
+    const useOllama = process.env.USE_OLLAMA !== 'false';
+    const host = (process.env.OLLAMA_HOST || process.env.OLLAMA_BASE_URL || '').replace(/\/$/, '');
+    if (!useOllama || !host) return null;
+    const model = process.env.OLLAMA_MODEL || 'llama3.1:latest';
+    const base = host.endsWith('/api') ? host.replace(/\/api$/, '') : host;
+    const url = `${base}/api/chat`;
+    try {
+        console.log(`[AI SERVICE] L5: Attempting Ollama (${model})...`);
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model,
+                stream: false,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: prompt }
+                ],
+                format: isJson ? 'json' : undefined
+            })
+        });
+        if (!res.ok) {
+            console.warn('[AI SERVICE] L5 Fail (Ollama):', res.status, await res.text().catch(() => ''));
+            return null;
+        }
+        const data = await res.json();
+        const text = data.message?.content || '';
+        if (!text) return null;
+        if (isJson) {
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            return jsonMatch ? jsonMatch[0] : text;
+        }
+        return text;
+    } catch (e) {
+        console.warn('[AI SERVICE] L5 Fail (Ollama):', e.message);
+        return null;
+    }
+}
+
+/**
+ * Universal AI Completion with multi-layer fallback (Groq model pool → Cohere → Gemini → Ollama)
+ */
+async function groqChatCompletion(model, prompt, systemPrompt, isJson) {
+    const run = (userContent) =>
+        withGroqKeyFallback((client) =>
+            client.chat.completions.create({
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userContent }
+                ],
+                model,
+                max_tokens: isJson ? 8192 : 4096,
                 response_format: isJson ? { type: 'json_object' } : undefined
-            });
-            return completion.choices[0].message.content;
-        } catch (e) {
-            console.warn('[AI SERVICE] L2 Fail (8B):', e.message);
+            })
+        );
+
+    try {
+        const completion = await run(prompt);
+        return completion.choices[0].message.content;
+    } catch (e) {
+        if (!isGroqPromptTooLargeError(e) || prompt.length < 4000) throw e;
+        const shrunk = prompt.substring(0, Math.floor(prompt.length * 0.72));
+        console.warn(`[AI SERVICE] Groq prompt too large (${prompt.length} chars); retrying with ${shrunk.length} chars...`);
+        const completion = await run(shrunk);
+        return completion.choices[0].message.content;
+    }
+}
+
+async function getCombinedAICompletion(prompt, systemPrompt, isJson = false) {
+    // LAYER 1–2: Groq (rotate keys, then try current + legacy model IDs)
+    if (hasGroqApiKeys()) {
+        for (const model of getGroqModelCandidates()) {
+            try {
+                console.log(`[AI SERVICE] Groq attempt: ${model} (key pool)...`);
+                return await groqChatCompletion(model, prompt, systemPrompt, isJson);
+            } catch (e) {
+                console.warn(`[AI SERVICE] Groq fail (${model}):`, e.message);
+            }
         }
     }
 
@@ -88,13 +211,12 @@ async function getCombinedAICompletion(prompt, systemPrompt, isJson = false) {
         }
     }
 
-    // LAYER 4: Google Gemini (Neural Backbone)
-    if (genAI || gemini) {
-        const candidateModels = ['gemini-3.5-flash-lite', 'gemini-flash-latest', 'gemini-3.6-flash'];
-        for (const modelName of candidateModels) {
+    // LAYER 4: Google Gemini
+    if (genAI) {
+        for (const modelName of getGeminiModelCandidates()) {
             try {
                 console.log(`[AI SERVICE] L4: Attempting Gemini (${modelName})...`);
-                const activeModel = genAI ? genAI.getGenerativeModel({ model: modelName }) : gemini;
+                const activeModel = genAI.getGenerativeModel({ model: modelName });
                 const fullPrompt = `System Context: ${systemPrompt}\n\nUser Request: ${prompt}`;
                 const result = await activeModel.generateContent(fullPrompt);
                 const response = await result.response;
@@ -111,7 +233,12 @@ async function getCombinedAICompletion(prompt, systemPrompt, isJson = false) {
         }
     }
 
-    throw new Error("All AI Engines are currently unavailable or quota-limited.");
+    const ollamaText = await tryOllamaCompletion(prompt, systemPrompt, isJson);
+    if (ollamaText) return ollamaText;
+
+    throw new Error(
+        'All AI engines are unavailable (Groq models retired or rate-limited, Gemini busy). Set GROQ_MODEL_PRIMARY=openai/gpt-oss-120b or enable Ollama, then retry.'
+    );
 }
 
 /**

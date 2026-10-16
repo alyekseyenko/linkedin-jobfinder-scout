@@ -27,8 +27,8 @@
     {
       "id": "sentinel",
       "type": "Project",
-      "name": "Sentinel: Logistics Orchestrator & SRE Pipeline",
-      "details": "A high-throughput event simulator project."
+      "name": "SENTINEL v2.3 — Multi-Agent Supply Chain Defense",
+      "details": "ALYGEN portfolio case study SENTINEL v2.3: spec-driven LangGraph swarm for logistics/crisis orchestration—Kafka, Redis, Citus, OTEL; documented architecture (GitHub portfolio), not production in Jobfinder Scout repo."
     },
     {
       "id": "AI_Engineering",

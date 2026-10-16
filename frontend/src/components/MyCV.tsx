@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  User, 
-  Briefcase, 
   GraduationCap, 
   Code2, 
   ShieldCheck, 
@@ -11,26 +9,19 @@ import {
   Globe, 
   FileText, 
   Download,
-  Upload,
-  Sparkles,
-  RefreshCw,
-  FileUp,
   CheckCircle2,
-  AlertCircle,
   Loader2,
   Edit3,
   Save,
-  X
+  X,
+  BookOpen
 } from 'lucide-react';
 import { mcpService } from '../lib/mcp-service';
+import ProfileIngestionPanel from './ProfileIngestionPanel';
 
 export default function MyCV() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [isUploading, setIsUploading] = useState(false);
-  const [isCrawling, setIsCrawling] = useState(false);
-  const [isDeepMapping, setIsDeepMapping] = useState(false);
-  const [urlInput, setUrlInput] = useState('');
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
 
   // Edit Profile Modal State
@@ -103,64 +94,26 @@ export default function MyCV() {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    setIsUploading(true);
-    setStatusMsg('A analisar e sintetizar ficheiro de CV com IA Gemini...');
-    try {
-      for (let i = 0; i < files.length; i++) {
-        const res = await mcpService.uploadCV(files[i]);
-        if (res && res.profile) {
-          setProfile(res.profile);
-        }
-      }
-      setStatusMsg('CV absorvido e perfil adaptado com sucesso!');
-      await loadNeuralProfile();
-    } catch (err: any) {
-      setStatusMsg(`Erro ao carregar CV: ${err.message}`);
-    } finally {
-      setIsUploading(false);
-      setTimeout(() => setStatusMsg(null), 5000);
-    }
-  };
-
-  const handleLearnUrl = async () => {
-    if (!urlInput.trim()) return;
-    setIsCrawling(true);
-    setStatusMsg(`A extrair competências de ${urlInput}...`);
-    try {
-      await mcpService.learnFromUrl(urlInput.trim());
-      setStatusMsg('Página indexada com sucesso! A recarregar perfil...');
-      setUrlInput('');
-      await loadNeuralProfile();
-    } catch (err: any) {
-      setStatusMsg(`Erro ao ler URL: ${err.message}`);
-    } finally {
-      setIsCrawling(false);
-      setTimeout(() => setStatusMsg(null), 5000);
-    }
-  };
-
-  const handleDeepMapping = async () => {
-    setIsDeepMapping(true);
-    setStatusMsg('A executar síntese profunda de identidade com Gemini...');
-    try {
-      await mcpService.deepMap();
-      setStatusMsg('Síntese profunda concluída com sucesso!');
-      await loadNeuralProfile();
-    } catch (err: any) {
-      setStatusMsg(`Erro na síntese: ${err.message}`);
-    } finally {
-      setIsDeepMapping(false);
-      setTimeout(() => setStatusMsg(null), 5000);
-    }
-  };
-
   if (loading) return <div className="p-8 text-center text-white/50 text-sm font-medium animate-pulse">A carregar o teu perfil de carreira...</div>;
   if (!profile) return null;
 
   const formatEdu = (edu: any) => typeof edu === 'string' ? edu : `${edu.degree} @ ${edu.institution}${edu.details ? ` (${edu.details})` : ''}`;
+
+  const PRIORITY_RANK: Record<string, number> = { flagship: 0, high: 1, medium: 2, portfolio: 3, low: 99 };
+  const sortProjectsForUi = (projects: any[]) =>
+    [...projects].sort((a, b) => (PRIORITY_RANK[a.portfolio_priority] ?? 2) - (PRIORITY_RANK[b.portfolio_priority] ?? 2));
+
+  const projectsMain = sortProjectsForUi((profile.projects || []).filter((p: any) => p.portfolio_priority !== 'low'));
+  const projectsOptional = (profile.projects || []).filter((p: any) => p.portfolio_priority === 'low');
+
+  const truncate = (text: string, max = 320) =>
+    !text || text.length <= max ? text : `${text.slice(0, max).trim()}…`;
+
+  const flattenTechStack = (stack: Record<string, string[]> | undefined, limit = 10): string[] => {
+    if (!stack || typeof stack !== 'object') return [];
+    const flat = Object.values(stack).flat().filter(Boolean);
+    return [...new Set(flat)].slice(0, limit);
+  };
 
   const exportATS = () => {
     if (!profile) return;
@@ -331,64 +284,7 @@ ${(profile.education || []).map(formatEdu).join('\n')}
           </div>
         </header>
 
-        {/* Knowledge Ingestion & AI Tuning Bar */}
-        <div className="mb-16 p-6 md:p-8 rounded-[2.5rem] bg-gradient-to-r from-white/[0.03] to-white/[0.01] border border-white/10 backdrop-blur-xl relative overflow-hidden shadow-2xl">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-green-400">
-                <Sparkles size={14} /> Profile Enhancement & Neural Ingestion
-              </div>
-              <p className="text-xs text-white/50">
-                Feed your agent with real experience data and skills to calibrate job matching in real-time.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Web Crawler Input */}
-              <div className="flex items-center bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 focus-within:border-green-500/50 transition-colors">
-                <input
-                  type="text"
-                  value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                  placeholder="LinkedIn / GitHub URL..."
-                  className="bg-transparent border-none text-xs text-white placeholder:text-white/20 outline-none w-44 md:w-56 font-mono"
-                />
-                <button
-                  onClick={handleLearnUrl}
-                  disabled={isCrawling || !urlInput.trim()}
-                  className="flex items-center gap-1.5 px-3 py-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all disabled:opacity-40 cursor-pointer"
-                >
-                  {isCrawling ? <Loader2 size={12} className="animate-spin" /> : <Globe size={12} />}
-                  Sync
-                </button>
-              </div>
-
-              {/* Upload CV */}
-              <label className="flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold text-white uppercase tracking-wider cursor-pointer transition-all hover:border-green-500/30">
-                {isUploading ? <Loader2 size={14} className="animate-spin text-green-400" /> : <FileUp size={14} className="text-green-400" />}
-                Upload CV
-                <input type="file" className="hidden" accept=".pdf,.docx,.txt" multiple onChange={handleFileUpload} />
-              </label>
-
-              {/* Deep Mapping Gemini */}
-              <button
-                onClick={handleDeepMapping}
-                disabled={isDeepMapping}
-                className="flex items-center gap-2 px-5 py-2.5 bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 text-green-400 rounded-xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-40 cursor-pointer"
-              >
-                {isDeepMapping ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                Gemini Synthesis
-              </button>
-            </div>
-          </div>
-
-          {/* Status Toast */}
-          {statusMsg && (
-            <div className="mt-4 pt-4 border-t border-white/5 flex items-center gap-2 text-xs font-medium text-green-400 animate-pulse">
-              <CheckCircle2 size={14} /> {statusMsg}
-            </div>
-          )}
-        </div>
+        <ProfileIngestionPanel onIngested={loadNeuralProfile} />
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-20">
           {/* Main Body (Left) */}
@@ -416,7 +312,9 @@ ${(profile.education || []).map(formatEdu).join('\n')}
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
                       <div>
                         <h4 className="text-2xl font-bold text-white group-hover:text-green-400 transition-colors">{exp.role}</h4>
-                        <div className="text-sm font-black text-white/30 uppercase tracking-[0.2em] mt-1">{exp.company}</div>
+                        <div className="text-sm font-black text-white/30 uppercase tracking-[0.2em] mt-1">
+                          {exp.company}{exp.location ? ` · ${exp.location}` : ''}
+                        </div>
                       </div>
                       <div className="text-xs font-mono px-4 py-2 bg-white/5 rounded-full border border-white/10 text-white/40 group-hover:text-white/80 transition-colors">{exp.period}</div>
                     </div>
@@ -458,29 +356,69 @@ ${(profile.education || []).map(formatEdu).join('\n')}
                 <span className="w-12 h-[1px] bg-green-500/30" /> Strategic Projects
               </h3>
               <div className="space-y-12">
-                {(profile.projects || []).map((project: any, i: number) => (
-                  <div key={i} className="p-8 rounded-[32px] bg-white/[0.02] border border-white/5 hover:border-green-500/30 transition-all group relative overflow-hidden">
+                {projectsMain.length === 0 && (
+                  <p className="text-sm text-white/35">Ainda não há projetos estruturados. Usa o separador <span className="text-white/60">3. Projeto</span> em cima e envia um de cada vez.</p>
+                )}
+                {projectsMain.map((project: any, i: number) => {
+                  const isCompact = project.portfolio_priority === 'portfolio';
+                  const outcomes = (project.edges_outcomes || []).slice(0, isCompact ? 2 : 4);
+                  const techTags = flattenTechStack(project.tech_stack, isCompact ? 6 : 10);
+                  return (
+                  <div key={project.id || i} className={`p-8 rounded-[32px] bg-white/[0.02] border border-white/5 hover:border-green-500/30 transition-all group relative overflow-hidden ${isCompact ? 'p-6' : ''}`}>
                     <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-20 transition-opacity">
-                      <Code2 size={40} />
+                      <Code2 size={isCompact ? 28 : 40} />
                     </div>
-                    <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-6">
-                      <h4 className="text-2xl font-bold text-white">{project.title}</h4>
-                      <span className="text-[9px] font-black text-green-500 bg-green-500/10 px-3 py-1 rounded-full border border-green-500/20 uppercase tracking-[0.2em]">
-                        {project.strategic_weight || 'Core Node'}
-                      </span>
-                    </div>
-                    <p className="text-lg text-white/50 mb-8 leading-relaxed max-w-3xl">
-                      {project.context}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {(project.edges_skills || []).map((s: string, idx: number) => (
-                        <span key={idx} className="text-[10px] font-mono text-white/30 bg-white/5 px-2 py-1 rounded">
-                          {s}
+                    <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-4">
+                      <h4 className={`font-bold text-white ${isCompact ? 'text-lg' : 'text-2xl'}`}>{project.title}</h4>
+                      {!isCompact && (
+                        <span className="text-[9px] font-black text-green-500 bg-green-500/10 px-3 py-1 rounded-full border border-green-500/20 uppercase tracking-[0.2em] shrink-0 max-w-[12rem] text-right leading-tight">
+                          {project.strategic_weight || 'Core Node'}
                         </span>
-                      ))}
+                      )}
                     </div>
+                    <p className="text-sm text-white/40 mb-3">{[project.period, project.role].filter(Boolean).join(' · ')}</p>
+                    <p className={`text-white/50 mb-4 leading-relaxed max-w-3xl ${isCompact ? 'text-sm' : 'text-lg'}`}>
+                      {truncate(project.context, isCompact ? 200 : 360)}
+                    </p>
+                    {outcomes.length > 0 && (
+                      <ul className="text-sm text-green-400/80 mb-4 space-y-1.5 list-disc list-inside marker:text-green-500/40">
+                        {outcomes.map((o: string, idx: number) => (
+                          <li key={idx}>{o}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {techTags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {techTags.map((t: string, idx: number) => (
+                          <span key={idx} className="text-[10px] font-mono text-green-400/60 bg-green-500/5 px-2 py-0.5 rounded border border-green-500/10">
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {project.link && (
+                      <a href={project.link} target="_blank" rel="noreferrer" className="inline-block mt-2 text-[10px] font-mono text-green-400/70 hover:text-green-300">
+                        {project.link}
+                      </a>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
+                {projectsOptional.length > 0 && (
+                  <details className="text-sm text-white/35">
+                    <summary className="cursor-pointer text-white/50 hover:text-white/70 uppercase tracking-widest text-[10px] font-black">
+                      Outros (opcional) — {projectsOptional.length} projeto(s)
+                    </summary>
+                    <ul className="mt-4 space-y-2 pl-2">
+                      {projectsOptional.map((p: any) => (
+                        <li key={p.id} className="text-white/40">
+                          <span className="text-white/60">{p.title}</span>
+                          {(p.websites || []).map((w: any) => w.url).filter(Boolean).join(', ')}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
               </div>
             </section>
           </div>
@@ -524,6 +462,25 @@ ${(profile.education || []).map(formatEdu).join('\n')}
                 ))}
               </ul>
             </section>
+
+            {(profile.books_read || []).length > 0 && (
+              <section className="p-8 rounded-[40px] bg-white/[0.02] border border-white/5">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/40 mb-8">Professional Reading</h3>
+                <ul className="space-y-4 max-h-64 overflow-y-auto pr-1">
+                  {(profile.books_read || []).map((book: any, i: number) => (
+                    <li key={i} className="flex gap-3 items-start">
+                      <BookOpen size={14} className="text-green-500/40 shrink-0 mt-0.5" />
+                      <div>
+                        <div className="text-sm font-bold text-white/75 leading-snug">{book.title}</div>
+                        <div className="text-[10px] text-white/30 mt-1">
+                          {[book.author, book.edition].filter(Boolean).join(' · ')}
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
 
             {/* Languages & Soft Skills */}
             <section className="p-8 space-y-12">

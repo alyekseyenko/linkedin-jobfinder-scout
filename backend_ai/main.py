@@ -19,6 +19,7 @@ if os.getenv("ENABLE_NEST_ASYNCIO", "false").lower() == "true":
         pass
 
 from langgraph_runner import run_neural_graph
+from ats_briefing_runner import run_ats_briefing
 from memory_service import neural_memory
 from graph_engine import neural_graph
 
@@ -79,8 +80,17 @@ class JobAnalysisRequest(BaseModel):
     job_data: dict
     candidate_profile: str
     candidate_skills: list[str]
+    candidate_digest: Optional[dict] = None
     groq_key: Optional[str] = None
     gemini_key: Optional[str] = None
+
+
+class AtsBriefingResponse(BaseModel):
+    scout_report: str = ""
+    strategy_analysis: str = ""
+    detected_language: Optional[str] = "en"
+    agent_trace: Optional[list] = []
+    status: str = "success"
 
 
 class JobAnalysisResponse(BaseModel):
@@ -93,6 +103,8 @@ class JobAnalysisResponse(BaseModel):
     inmail_pitch: Optional[str] = None
     detected_language: Optional[str] = "en"
     final_summary: Optional[str] = None
+    agent_trace: Optional[list] = []
+    tailored_cv: Optional[dict] = None
     status: str = "success"
 
 
@@ -150,6 +162,32 @@ async def evaluate_pitch_endpoint(request: EvalPitchRequest):
         request.job_requirements or []
     )
 
+@app.post("/crew/ats-briefing", response_model=AtsBriefingResponse)
+async def ats_briefing(request: JobAnalysisRequest):
+    """Scout + Strategist only — feeds /ats CV tailor without running full LangGraph."""
+    try:
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            executor,
+            lambda: run_ats_briefing(
+                request.job_data,
+                request.candidate_profile,
+                request.candidate_skills,
+                request.candidate_digest or {},
+                request.groq_key,
+                request.gemini_key,
+            ),
+        )
+        return AtsBriefingResponse(**result)
+    except Exception as e:
+        return AtsBriefingResponse(
+            scout_report="",
+            strategy_analysis=f"Briefing unavailable: {str(e)[:200]}",
+            agent_trace=[{"agent": "Briefing", "tool": "error", "one_line": str(e)[:200]}],
+            status="degraded",
+        )
+
+
 @app.post("/crew/analyze", response_model=JobAnalysisResponse)
 async def analyze_job(request: JobAnalysisRequest):
     """
@@ -163,7 +201,8 @@ async def analyze_job(request: JobAnalysisRequest):
                 profile,
                 skills,
                 request.groq_key,
-                request.gemini_key
+                request.gemini_key,
+                request.candidate_digest or {},
             )
 
         # Execute through cascading router with automatic caching
@@ -177,20 +216,30 @@ async def analyze_job(request: JobAnalysisRequest):
     except Exception as e:
         # Resilient fallback with triage synthesis
         triage = cascading_router.fast_triage(request.job_data, request.candidate_skills, request.candidate_profile)
+        skills_hint = ", ".join(triage["matched_skills"][:3]) or "automation and production systems"
+        company = triage["company"]
+        title = triage["title"]
         fallback_msg = (
-            f"Olá! Notei a oportunidade na {triage['company']} para {triage['title']}. "
-            f"Possuo sólida experiência alinhada aos desafios e gostaria de conectar para explorar possíveis sinergias."
+            f"I saw the {title} opening at {company}. "
+            f"My background in {skills_hint} maps to what you described. "
+            f"Happy to share a short example if useful."
         )
         return JobAnalysisResponse(
-            intelligence_report=f"Análise resiliente. Score estimado: {triage['preliminary_score']}%.",
-            forensics_report=f"Skills coincidentes: {', '.join(triage['matched_skills']) or 'Nenhuma'}.",
-            strategy_analysis="Abordagem calculada por fallback determinístico.",
+            intelligence_report=f"Resilient triage only. Estimated fit: {triage['preliminary_score']}%.",
+            forensics_report=f"Matched skills: {', '.join(triage['matched_skills']) or 'None flagged'}.",
+            strategy_analysis="Deterministic fallback. Re-run deep scan when the AI engine is online.",
             pitch_message=fallback_msg,
-            linkedin_connect_note=f"Olá! Notei os desafios para {triage['title']} na {triage['company']}. Tenho experiência prática na área e gostaria de conectar."[:280],
+            linkedin_connect_note=fallback_msg[:280],
             inmail_pitch=fallback_msg,
-            detected_language="pt",
-            company_intel=f"Empresa: {triage['company']}",
-            final_summary="Concluído via Fallback Resiliente",
+            detected_language="en",
+            company_intel=f"Company: {company}",
+            final_summary="Completed via resilient English fallback",
+            agent_trace=[{
+                "agent": "Fallback",
+                "tool": "triage",
+                "one_line": f"LangGraph unavailable; preliminary fit {triage['preliminary_score']}%."
+            }],
+            tailored_cv=None,
             status="success"
         )
 

@@ -8,6 +8,41 @@ const knowledgeService = require('./knowledge_service');
 const aiService = require('./ai_service');
 const vectorEngine = require('../vector_engine');
 
+function buildMatchSkillDictionary(candidateProfile) {
+    const base = [...knowledgeService.MASTER_DICTIONARY];
+    const seen = new Set(base.map((s) => s.toLowerCase()));
+    const extras = (candidateProfile?.skills || [])
+        .map((s) => String(s).trim())
+        .filter((s) => s.length > 1 && s.length < 80);
+    for (const skill of extras) {
+        const low = skill.toLowerCase();
+        if (!seen.has(low)) {
+            base.push(skill);
+            seen.add(low);
+        }
+    }
+    return base;
+}
+
+function userHasSkill(combinedUserSkills, requiredSkill) {
+    const lower = requiredSkill.toLowerCase().trim();
+    if (combinedUserSkills.some((cs) => cs === lower || cs.includes(lower) || lower.includes(cs))) {
+        return true;
+    }
+    const synonyms = knowledgeService.SKILL_SYNONYMS || {};
+    if (synonyms[lower]) {
+        return synonyms[lower].some((syn) => combinedUserSkills.some((cs) => cs === syn || cs.includes(syn) || syn.includes(cs)));
+    }
+    for (const [main, syns] of Object.entries(synonyms)) {
+        if (syns.includes(lower) || main === lower) {
+            if (combinedUserSkills.some((cs) => cs === main || syns.some((syn) => cs === syn || cs.includes(syn)))) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 /**
  * Calculates a realistic, multi-factor match score (0-100%) between a candidate and a job.
  * Factor 1: Title & Seniority Alignment (0-35 points)
@@ -59,14 +94,13 @@ function calculateMatchAnalysis(description = '', jobTitle = '', candidateProfil
     }
 
     // 3. Technical Skills Overlap (0-45 points)
-    const requiredInJob = knowledgeService.extractSkills(description, knowledgeService.MASTER_DICTIONARY);
+    const matchDictionary = buildMatchSkillDictionary(candidate);
+    const requiredInJob = knowledgeService.extractSkills(description, matchDictionary);
     const matched = [];
     const missing = [];
 
     requiredInJob.forEach(skill => {
-        const lower = skill.toLowerCase().trim();
-        const hasSkill = combinedUserSkills.some(cs => cs === lower || cs.includes(lower) || lower.includes(cs));
-        if (hasSkill) {
+        if (userHasSkill(combinedUserSkills, skill)) {
             matched.push(skill);
         } else {
             missing.push(skill);
@@ -83,15 +117,19 @@ function calculateMatchAnalysis(description = '', jobTitle = '', candidateProfil
 
     // 4. Domain & Experience Context (0-20 points)
     const domainKeywords = [
-        'agentic', 'agent', 'automation', 'workflow', 'microservices', 'cloud', 
+        'agentic', 'agent', 'automation', 'workflow', 'microservices', 'cloud',
         'enterprise', 'production', 'llm', 'machine learning', 'artificial intelligence',
-        'rag', 'vector', 'pipeline', 'distributed', 'event-driven', 'scalable'
+        'rag', 'vector', 'pipeline', 'distributed', 'event-driven', 'scalable',
+        'wordpress', 'woocommerce', 'erp', 'crm', 'observability', 'prometheus', 'grafana',
+        'integration', 'api', 'docker', 'kubernetes', 'postgres', 'postgresql', 'sql',
+        'full stack', 'full-stack', 'next.js', 'react', 'python', 'fastapi'
     ];
     let domainHits = 0;
     domainKeywords.forEach(dk => {
         if (textToAnalyze.includes(dk)) domainHits++;
     });
-    const domainScore = Math.min(20, Math.round((domainHits / 4) * 20));
+    // Softer curve: most tech JDs hit 4+ domain tokens and used to always grant 20/20 (~same total ~70%).
+    const domainScore = Math.min(20, Math.round(domainHits * 2));
 
     // Total realistic score between 15% and 98%
     const totalScore = Math.min(98, Math.max(15, titleScore + skillsScore + domainScore));
@@ -439,12 +477,190 @@ async function fetchPublicJobDetails(jobId) {
     }
 }
 
+function parseLinkedInJobId(url) {
+    if (!url || typeof url !== 'string') return null;
+    const m =
+        url.match(/linkedin\.com\/jobs\/view\/(\d+)/i) ||
+        url.match(/currentJobId=(\d+)/i) ||
+        url.match(/jobs\/view\/(\d+)/i);
+    return m ? m[1] : null;
+}
+
+function parseJsonLdJobPosting($) {
+    let best = null;
+    $('script[type="application/ld+json"]').each((_, el) => {
+        try {
+            const raw = $(el).html();
+            if (!raw) return;
+            const data = JSON.parse(raw);
+            const nodes = Array.isArray(data) ? data : [data];
+            for (const node of nodes) {
+                if (!node) continue;
+                const type = node['@type'];
+                const types = Array.isArray(type) ? type : [type];
+                if (types.some((t) => String(t).toLowerCase().includes('jobposting'))) {
+                    best = node;
+                    break;
+                }
+                if (node['@graph']) {
+                    for (const g of node['@graph']) {
+                        const gt = g['@type'];
+                        const gtypes = Array.isArray(gt) ? gt : [gt];
+                        if (gtypes.some((t) => String(t).toLowerCase().includes('jobposting'))) {
+                            best = g;
+                            break;
+                        }
+                    }
+                }
+            }
+        } catch (_) {
+            /* ignore malformed JSON-LD */
+        }
+    });
+    if (!best) return null;
+    const title = best.title || best.name || '';
+    const company =
+        (best.hiringOrganization && (best.hiringOrganization.name || best.hiringOrganization)) || '';
+    const description = typeof best.description === 'string' ? best.description : '';
+    return {
+        title: String(title).trim(),
+        company: String(company).trim(),
+        description: description.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+    };
+}
+
+async function extractJobFieldsWithLlm(scrapedText, pageUrl) {
+    const snippet = (scrapedText || '').substring(0, 12000);
+    if (snippet.length < 80) return null;
+    const prompt = `
+Extract structured fields from this job posting page scrape.
+Page URL: ${pageUrl}
+
+Return ONLY JSON:
+{
+  "title": "job title",
+  "company": "employer name",
+  "description": "full job description text in original language, max 8000 chars"
+}
+
+SCRAPED TEXT:
+${snippet}
+`;
+    try {
+        const raw = await aiService.getCombinedAICompletion(
+            prompt,
+            'You extract job postings. Output ONLY valid JSON.',
+            true
+        );
+        const jsonMatch = raw.match(/\{[\s\S]*\}/);
+        const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : raw);
+        if (!parsed.description || parsed.description.length < 50) return null;
+        return {
+            title: String(parsed.title || '').trim(),
+            company: String(parsed.company || '').trim(),
+            description: String(parsed.description).trim().substring(0, 12000)
+        };
+    } catch (err) {
+        console.warn('[JOB URL] LLM extraction failed:', err.message);
+        return null;
+    }
+}
+
+/**
+ * Resolve title, company, and description from a public job URL (LinkedIn guest API or generic scrape).
+ */
+async function resolveJobPostingFromUrl(url) {
+    const trimmed = String(url).trim();
+    const linkedInId = parseLinkedInJobId(trimmed);
+    if (linkedInId) {
+        const detail = await fetchPublicJobDetails(linkedInId);
+        const description =
+            detail?.text ||
+            detail?.sections?.job_posting ||
+            detail?.sections?.main ||
+            '';
+        if (description && description.length >= 50) {
+            const meta = extractJobMetadata(detail, {}, description);
+            return {
+                title: detail.title || meta.title,
+                company: detail.company || meta.company,
+                location: detail.location || '',
+                description,
+                url: trimmed.includes('linkedin.com')
+                    ? trimmed
+                    : `https://www.linkedin.com/jobs/view/${linkedInId}`,
+                source: 'linkedin_guest'
+            };
+        }
+    }
+
+    const response = await fetch(trimmed, {
+        headers: {
+            'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+            Accept: 'text/html,application/xhtml+xml',
+            'Accept-Language': 'en-US,en;q=0.9,pt-PT;q=0.8'
+        },
+        redirect: 'follow'
+    });
+    if (!response.ok) {
+        throw new Error(`Could not fetch job URL (HTTP ${response.status})`);
+    }
+    const html = await response.text();
+    const $ = cheerio.load(html);
+    $('script, style, nav, footer, iframe, noscript').remove();
+
+    const jsonLd = parseJsonLdJobPosting($);
+    let title = jsonLd?.title || '';
+    let company = jsonLd?.company || '';
+    let description = jsonLd?.description || '';
+
+    const ogTitle = $('meta[property="og:title"]').attr('content') || '';
+    const h1 = $('h1').first().text().replace(/\s+/g, ' ').trim();
+    if (!title) {
+        title = h1 || ogTitle.split('|')[0].split(' - ')[0].trim();
+    }
+
+    if (!description || description.length < 80) {
+        const bodyText = $('body').text().replace(/\s+/g, ' ').trim();
+        description = bodyText.substring(0, 12000);
+    }
+
+    const meta = extractJobMetadata({ title, company }, {}, description);
+    title = title || meta.title;
+    company = company || meta.company;
+
+    if (!description || description.length < 80) {
+        throw new Error('Job page did not contain enough description text. Paste the JD manually.');
+    }
+
+    if ((!title || title.length < 3 || title === 'Specialized Role') && description.length > 100) {
+        const llm = await extractJobFieldsWithLlm(description, trimmed);
+        if (llm) {
+            title = llm.title || title;
+            company = llm.company || company;
+            description = llm.description || description;
+        }
+    }
+
+    return {
+        title: title || 'Target Role',
+        company: company || 'Target Company',
+        location: '',
+        description,
+        url: trimmed,
+        source: jsonLd ? 'generic_jsonld' : 'generic_scrape'
+    };
+}
+
 module.exports = {
     calculateMatchAnalysis,
     extractSalaryFromText,
     extractJobMetadata,
     performDeepAnalysis,
     fetchPublicLinkedInJobs,
-    fetchPublicJobDetails
+    fetchPublicJobDetails,
+    parseLinkedInJobId,
+    resolveJobPostingFromUrl
 };
 
