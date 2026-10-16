@@ -18,7 +18,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Scan for committed secrets & real cookies
         run: |
-          if grep -rn "AQEDA" . --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.github; then
+          # Match real li_at cookie bodies only; exclude the safe-publish guard (contains the prefix in a regex).
+          if grep -rnE 'AQEDA[A-Za-z0-9%+/=]{20,}' . \
+            --exclude-dir=node_modules \
+            --exclude-dir=.git \
+            --exclude-dir=.github \
+            --exclude=check-safe-publish.js; then
             echo "❌ CRITICAL: LinkedIn raw session cookie found in repository files!"
             exit 1
           fi
