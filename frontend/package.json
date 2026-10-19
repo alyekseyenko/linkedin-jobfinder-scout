@@ -2,6 +2,9 @@
   "name": "linkedin-neural-scout-ui",
   "private": true,
   "version": "2.0.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
