@@ -126,15 +126,13 @@ cd frontend && npm ci && npm run typecheck && npm run build
 
 ## ⚡ 1-Click Launch
 
-### Windows
-Double-click the automatic launcher:
-👉 **`start-neural-scout.bat`**
-
-### Linux / macOS
+### All platforms (Git Bash, WSL, Linux, macOS)
 ```bash
 chmod +x ./start-neural-scout.sh
 ./start-neural-scout.sh
 ```
+
+On **Windows** without a Unix shell, use **Git Bash** or **WSL**, or run: `bash ./start-neural-scout.sh`
 
 The startup script automatically:
 1. Generates `.env` and `backend/user_cv.json` from templates if missing.

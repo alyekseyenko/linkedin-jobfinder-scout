@@ -14,16 +14,13 @@ Before starting, make sure you have installed on your machine:
 
 ## ⚡ Step 1: 1-Click Launch
 
-### Windows
-Double-click the automatic launcher:
-👉 **`start-neural-scout.bat`**
-
-### Linux / macOS
-Make executable and run:
+Run the launcher (Git Bash, WSL, Linux, or macOS):
 ```bash
 chmod +x ./start-neural-scout.sh
 ./start-neural-scout.sh
 ```
+
+On **Windows** in PowerShell/CMD, use **Git Bash** or **WSL**, or: `bash ./start-neural-scout.sh`
 
 This automated launcher will:
 1. Create `.env` from the `.env.example` template if missing.

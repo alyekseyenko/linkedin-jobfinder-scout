@@ -29,13 +29,11 @@ Add your free API keys (`GROQ_API_KEY`, `GEMINI_API_KEY`) to `.env`.
 
 ### 3. Run Locally with Docker
 ```bash
-# Windows
-.\start-neural-scout.bat
-
-# Linux / macOS
 chmod +x ./start-neural-scout.sh
 ./start-neural-scout.sh
 ```
+
+On Windows, use Git Bash, WSL, or `bash ./start-neural-scout.sh`.
 
 ---
 
