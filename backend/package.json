@@ -8,7 +8,8 @@
     "dev": "nodemon server.js --ignore knowledge_base.json",
     "test": "node --test test/**/*.test.js",
     "autofill:desktop": "node scripts/run_autofill_desktop.js",
-    "login:linkedin": "node scripts/login_linkedin.js"
+    "login:linkedin": "node scripts/login_linkedin.js",
+    "ingest:repo": "node scripts/ingest_local_repo.js"
   },
   "dependencies": {
     "@browserbasehq/stagehand": "^3.3.0",

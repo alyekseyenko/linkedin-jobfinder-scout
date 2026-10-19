@@ -10,6 +10,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Backend integration tests must close the PG pool or the job can hang until the 6h runner timeout.
+
 jobs:
   security-audit:
     name: Secret & Pattern Security Gate
@@ -58,6 +60,7 @@ jobs:
     name: Node.js Backend — Unit & Contract Suite
     needs: security-audit
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       matrix:
         node-version: ['20.x', '22.x']
@@ -72,15 +75,17 @@ jobs:
         run: npm ci
         working-directory: ./backend
       - name: Run Node Tests
-        run: node --test test/system.test.js test/services/*.test.js test/middleware/*.test.js
+        run: node --test --test-timeout=120000 --test-force-exit test/services/*.test.js test/middleware/*.test.js test/system.test.js
         working-directory: ./backend
         env:
           NODE_ENV: test
+          AI_ENGINE_TIMEOUT_MS: 10000
 
   frontend-build:
     name: Frontend — TypeScript & Vite Build
     needs: security-audit
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

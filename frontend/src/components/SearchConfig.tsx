@@ -64,10 +64,17 @@ export default function SearchConfig({ onSearch, onImportJob, loading = false, i
           ? rawSkills
           : (typeof rawSkills === 'object' ? Object.values(rawSkills).flat() : []);
 
+        const jobSearch = (p as { job_search?: { work_mode?: string[]; geo?: string[] } }).job_search;
+        const prefersRemote = jobSearch?.work_mode?.includes('remote');
+        const searchLocation =
+          jobSearch?.geo?.find((g) => /portugal|europe|eu/i.test(g)) || targetLocation;
+
         setConfig(prev => ({
           ...prev,
           keywords: targetTitle,
-          location: targetLocation,
+          location: searchLocation.includes('Portugal') ? 'Portugal' : searchLocation,
+          workMode: prefersRemote ? 'remote' : prev.workMode,
+          remote: prefersRemote ?? prev.remote,
           skills: skillsList as string[]
         }));
         setCvSynced(true);

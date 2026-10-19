@@ -12,24 +12,29 @@ const telemetryService = require('../services/telemetry_service');
 
 describe('Neural Bot — Staff Principal Test Suite', () => {
     let testServer = null;
+    let testBaseUrl = '';
 
     before(async () => {
-        await new Promise((resolve) => {
-            testServer = app.listen(3001, () => {
+        await new Promise((resolve, reject) => {
+            testServer = app.listen(0, '127.0.0.1', () => {
+                const addr = testServer.address();
+                testBaseUrl = `http://127.0.0.1:${addr.port}`;
                 resolve();
             });
-            testServer.on('error', (err) => {
-                if (err.code === 'EADDRINUSE') {
-                    testServer = null;
-                    resolve();
-                }
-            });
+            testServer.on('error', reject);
         });
     });
 
-    after(() => {
+    after(async () => {
+        telemetryService.stopHeartbeat();
         if (testServer) {
-            testServer.close();
+            await new Promise((resolve) => testServer.close(resolve));
+        }
+        try {
+            const vectorEngine = require('../vector_engine');
+            await vectorEngine.pool.end();
+        } catch (_) {
+            // pool may already be closed
         }
     });
 
@@ -115,7 +120,7 @@ describe('Neural Bot — Staff Principal Test Suite', () => {
     describe('5. Live HTTP Sanity & API Endpoints', () => {
         function fetchJson(urlPath) {
             return new Promise((resolve, reject) => {
-                http.get(`http://localhost:3001${urlPath}`, { agent: false }, (res) => {
+                http.get(`${testBaseUrl}${urlPath}`, { agent: false }, (res) => {
                     let data = '';
                     res.on('data', chunk => data += chunk);
                     res.on('end', () => {
@@ -178,7 +183,7 @@ describe('Neural Bot — Staff Principal Test Suite', () => {
 
         test('GET /api/docs should serve interactive Swagger UI HTML', async () => {
             const res = await new Promise((resolve, reject) => {
-                http.get('http://localhost:3001/api/docs', { agent: false }, (r) => {
+                http.get(`${testBaseUrl}/api/docs`, { agent: false }, (r) => {
                     let text = '';
                     r.on('data', chunk => text += chunk);
                     r.on('end', () => resolve({ status: r.statusCode, text, contentType: r.headers['content-type'] }));
@@ -198,7 +203,7 @@ describe('Neural Bot — Staff Principal Test Suite', () => {
 
         test('Correlation Middleware should auto-generate X-Correlation-ID', async () => {
             const res = await new Promise((resolve, reject) => {
-                http.get('http://localhost:3001/api/health', { agent: false }, (r) => {
+                http.get(`${testBaseUrl}/api/health`, { agent: false }, (r) => {
                     r.resume();
                     r.on('end', () => resolve({ headers: r.headers }));
                 }).on('error', reject);
@@ -210,7 +215,7 @@ describe('Neural Bot — Staff Principal Test Suite', () => {
         test('Correlation Middleware should preserve incoming X-Correlation-ID across boundary', async () => {
             const customId = 'trace-staff-test-correlation-uuid-999';
             const res = await new Promise((resolve, reject) => {
-                http.get('http://localhost:3001/api/health', {
+                http.get(`${testBaseUrl}/api/health`, {
                     agent: false,
                     headers: { 'X-Correlation-ID': customId }
                 }, (r) => {
@@ -257,7 +262,7 @@ describe('Neural Bot — Staff Principal Test Suite', () => {
         function postJson(urlPath, payload) {
             return new Promise((resolve, reject) => {
                 const bodyStr = JSON.stringify(payload);
-                const req = http.request(`http://localhost:3001${urlPath}`, {
+                const req = http.request(`${testBaseUrl}${urlPath}`, {
                     method: 'POST',
                     agent: false,
                     headers: {

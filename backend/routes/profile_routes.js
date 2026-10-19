@@ -493,7 +493,10 @@ router.get('/api/cv/neural', (req, res) => {
             soft_skills: masterProfile.soft_skills || neuralIdentity.softSkills || [],
             tech_philosophy: neuralIdentity.techPhilosophy || masterProfile.techPhilosophy || "",
             projects: knowledgeService.mergeProjects(masterProfile.projects, neuralIdentity.relationalProjects),
-            books_read: masterProfile.books_read || neuralIdentity.booksRead || []
+            books_read: masterProfile.books_read || neuralIdentity.booksRead || [],
+            preferences: masterProfile.preferences || '',
+            screening: masterProfile.screening || '',
+            job_search: masterProfile.job_search || null
         };
 
         res.json({ success: true, profile: combinedProfile });

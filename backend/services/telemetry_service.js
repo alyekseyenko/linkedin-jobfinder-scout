@@ -8,6 +8,13 @@ class TelemetryService extends EventEmitter {
         this.startHeartbeat();
     }
 
+    stopHeartbeat() {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
+    }
+
     startHeartbeat() {
         if (this.heartbeatInterval) return;
         this.heartbeatInterval = setInterval(() => {

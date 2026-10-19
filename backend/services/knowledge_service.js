@@ -7,6 +7,12 @@ const fs = require('fs');
 const path = require('path');
 const vectorEngine = require('../vector_engine');
 const aiService = require('./ai_service');
+const {
+    walkMarkdownDocs,
+    collectAgentExportDocs,
+    buildCorpus,
+    scrubSensitiveText
+} = require('./project_repo_ingest');
 
 const KB_PATH = path.join(__dirname, '..', 'knowledge_base.json');
 
@@ -349,6 +355,14 @@ async function seedCvIntoMemory() {
             .join('; ');
         chunks.push(`Operational scale: ${om}`);
     }
+    if (cv.job_search && typeof cv.job_search === 'object') {
+        const js = cv.job_search;
+        const geo = Array.isArray(js.geo) ? js.geo.join(', ') : '';
+        const modes = Array.isArray(js.work_mode) ? js.work_mode.join(', ') : '';
+        chunks.push(
+            `Job search constraints: work_mode=${modes || 'remote'}; regions=${geo}; timezone=${js.timezone || 'WET'}; notes=${(js.open_to || []).join('; ')}`
+        );
+    }
     if (cv.preferences) chunks.push(`Candidate Preferences / Constraints:\n${cv.preferences}`);
     if (cv.screening) chunks.push(`Screening Answers:\n${cv.screening}`);
 
@@ -405,7 +419,8 @@ function getUserTargetRequirements() {
         experience: cv?.experience || [],
         summary: cv?.summary || kb?.identity?.summary || '',
         projects: cv?.projects || kb?.identity?.relationalProjects || [],
-        preferences: cv?.preferences || ''
+        preferences: cv?.preferences || '',
+        job_search: cv?.job_search || null
     };
 }
 
@@ -665,6 +680,78 @@ async function ingestTeachText(text, kind = 'project_notes') {
     return { kind, source };
 }
 
+/**
+ * Index a local git repo (docs only) + optional Cursor/agent export folders into memory.
+ * Does not copy connection strings or .env from the repo.
+ */
+async function ingestLocalProjectRepo(repoPath, options = {}) {
+    const root = path.resolve(repoPath);
+    if (!fs.existsSync(root)) {
+        throw new Error(`Project path not found: ${root}`);
+    }
+
+    const projectId = options.projectId || 'phc_cloud_data_platform_elt';
+    const agentIds = Array.isArray(options.agentIds) ? options.agentIds : [];
+    const extraDirs = Array.isArray(options.extraDirs) ? options.extraDirs : [];
+
+    let chunks = walkMarkdownDocs(root);
+    for (const dir of extraDirs) {
+        chunks = chunks.concat(collectAgentExportDocs(path.resolve(dir)));
+    }
+
+    if (!chunks.length) {
+        throw new Error(`No safe markdown docs found under ${root} (README.md, docs/*.md)`);
+    }
+
+    const corpus = buildCorpus(chunks, {
+        projectId,
+        agentIds,
+        repoPath: root
+    });
+
+    const cv = loadOrCreateUserCv();
+    cv.projects = Array.isArray(cv.projects) ? cv.projects : [];
+    const idx = cv.projects.findIndex((p) => p.id === projectId);
+    if (idx >= 0) {
+        const p = cv.projects[idx];
+        p.repository = p.repository || path.basename(root);
+        p.ingest_sources = [...new Set([...(p.ingest_sources || []), path.basename(root)])];
+        if (agentIds.length) {
+            p.agent_refs = [...new Set([...(p.agent_refs || []), ...agentIds])];
+        }
+        cv.projects[idx] = p;
+        saveUserCv(cv);
+        await vectorEngine.addInformation(
+            formatProjectMemory(p),
+            `Structured Project: ${p.title || projectId}`
+        );
+    }
+
+    syncIdentityFromCv(cv);
+    await saveKB();
+
+    const header = `PROJECT REPO KNOWLEDGE (${path.basename(root)})\nProject CV id: ${projectId}\n`;
+    await ingestTeachText(`${header}\n${corpus}`, 'project_notes');
+
+    let fragments = 0;
+    for (const c of chunks) {
+        const snippet = scrubSensitiveText(c.body).slice(0, 6000);
+        await vectorEngine.addInformation(
+            `FILE: ${c.relative}\nPROJECT: ${projectId}\n\n${snippet}`,
+            `Repo: ${path.basename(root)}/${c.relative}`
+        );
+        fragments += 1;
+    }
+
+    return {
+        repo: root,
+        projectId,
+        filesIndexed: fragments,
+        chars: corpus.length,
+        agentIds
+    };
+}
+
 module.exports = {
     knowledgeBase,
     getKnowledgeBase: () => knowledgeBase,
@@ -685,5 +772,6 @@ module.exports = {
     mergeProjects,
     ingestStructuredProject,
     ingestExperienceBullet,
-    ingestTeachText
+    ingestTeachText,
+    ingestLocalProjectRepo
 };
